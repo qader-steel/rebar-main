@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mq_driver_name_user,mq.driver.name user,model_mq_driver_name,base.group_user,1,1,1,1
+access_mq_driver_phone_user,mq.driver.phone user,model_mq_driver_phone,base.group_user,1,1,1,1
+access_mq_car_plate_user,mq.car.plate user,model_mq_car_plate,base.group_user,1,1,1,1
+access_mq_border_crossing_user,mq.border.crossing user,model_mq_border_crossing,base.group_user,1,1,1,1
+access_mq_scale_no_user,mq.scale.no user,model_mq_scale_no,base.group_user,1,1,1,1

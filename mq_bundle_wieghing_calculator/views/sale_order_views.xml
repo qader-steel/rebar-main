@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_mq_bundle" model="ir.ui.view">
+        <field name="name">sale.order.form.mq.bundle</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <!-- Inject fields into the order lines table -->
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="before">
+                <field name="mq_bundle_qty" />
+                <field name="mq_quantity" />
+            </xpath>
+            
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="column_invisible">True</attribute>
+            </xpath>
+
+            <!-- Adjust the product_uom_id field -->
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_id']" position="attributes">
+                <attribute name="string">Unit</attribute>
+                <attribute name="optional">show</attribute>
+            </xpath>
+
+            <!-- Add totals to the bottom of the form -->
+            <xpath expr="//group[@name='sale_total']" position="after">
+                <group class="oe_subtotal_footer oe_right">
+                    <field name="mq_total_weight" />
+                    <field name="mq_total_bundle_qty" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
