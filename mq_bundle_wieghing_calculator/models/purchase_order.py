@@ -17,23 +17,20 @@ class PurchaseOrderLine(models.Model):
                 line.mq_quantity = line.mq_bundle_qty * multiplier
                 line.product_qty = line.mq_quantity
             else:
-                # Snap back to normal quantity to forbid manual overrides on non-bundles
-                line.mq_bundle_qty = line.product_qty
+                line.mq_bundle_qty = 0.0
 
     @api.onchange('mq_quantity', 'product_id')
     def _onchange_mq_quantity(self):
         for line in self:
             line.product_qty = line.mq_quantity
-            if not (line.product_id and line.product_id.mq_is_bundle_weight):
-                line.mq_bundle_qty = line.mq_quantity
 
     @api.onchange('product_qty', 'product_id')
     def _onchange_product_qty(self):
         for line in self:
             if line.product_qty != line.mq_quantity:
                 line.mq_quantity = line.product_qty
-            if not (line.product_id and line.product_id.mq_is_bundle_weight):
-                line.mq_bundle_qty = line.product_qty
+            if line.product_id and not line.product_id.mq_is_bundle_weight:
+                line.mq_bundle_qty = 0.0
 
     def _prepare_account_move_line(self, move=False):
         res = super()._prepare_account_move_line(move=move)
@@ -46,6 +43,72 @@ class PurchaseOrderLine(models.Model):
         res['mq_bundle_qty'] = self.mq_bundle_qty
         res['mq_quantity'] = self.mq_quantity
         return res
+
+    def _get_linked_sale_lines(self):
+        sale_lines = self.env['sale.order.line']
+        if hasattr(self, 'sale_line_id') and self.sale_line_id:
+            sale_lines |= self.sale_line_id
+        if hasattr(self, 'move_ids') and self.move_ids:
+            sale_lines |= self.move_ids.mapped('sale_line_id')
+        return sale_lines.filtered(lambda l: l.exists())
+
+    def _get_linked_moves(self):
+        moves = self.env['stock.move']
+        if hasattr(self, 'move_ids') and self.move_ids:
+            moves |= self.move_ids
+        return moves.filtered(lambda m: m.exists())
+
+    def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super().write(vals)
+        res = super().write(vals)
+        for line in self:
+            if line.product_id and not line.product_id.mq_is_bundle_weight:
+                if line.mq_bundle_qty != 0.0 or line.mq_quantity != line.product_qty:
+                    line.with_context(skip_sync=True).write({
+                        'mq_bundle_qty': 0.0,
+                        'mq_quantity': line.product_qty,
+                    })
+        if 'mq_bundle_qty' in vals or 'mq_quantity' in vals:
+            for line in self:
+                if line.product_id.mq_is_bundle_weight:
+                    for so_line in line._get_linked_sale_lines():
+                        so_vals = {}
+                        if 'mq_bundle_qty' in vals and so_line.mq_bundle_qty != line.mq_bundle_qty:
+                            so_vals['mq_bundle_qty'] = line.mq_bundle_qty
+                        if 'mq_quantity' in vals and so_line.mq_quantity != line.mq_quantity:
+                            so_vals['mq_quantity'] = line.mq_quantity
+                        if so_vals:
+                            so_line.with_context(skip_sync=True).write(so_vals)
+                    for move in line._get_linked_moves():
+                        move_vals = {}
+                        if 'mq_bundle_qty' in vals and move.mq_bundle_qty != line.mq_bundle_qty:
+                            move_vals['mq_bundle_qty'] = line.mq_bundle_qty
+                        if 'mq_quantity' in vals and move.mq_quantity != line.mq_quantity:
+                            move_vals['mq_quantity'] = line.mq_quantity
+                        if move_vals:
+                            move.with_context(skip_sync=True).write(move_vals)
+        return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            product = self.env['product.product'].browse(vals.get('product_id'))
+            if product.exists() and not product.mq_is_bundle_weight:
+                vals['mq_bundle_qty'] = 0.0
+                if 'product_qty' in vals:
+                    vals['mq_quantity'] = vals['product_qty']
+        lines = super().create(vals_list)
+        for line in lines:
+            if line.product_id.mq_is_bundle_weight:
+                if not line.mq_bundle_qty or not line.mq_quantity:
+                    so_lines = line._get_linked_sale_lines()
+                    if so_lines:
+                        line.write({
+                            'mq_bundle_qty': so_lines[0].mq_bundle_qty,
+                            'mq_quantity': so_lines[0].mq_quantity,
+                        })
+        return lines
 
 class PurchaseOrder(models.Model):
     """

@@ -3,7 +3,7 @@
     "version": "19.0.1.0.0",
     "category": "Sales",
     "summary": "Calculate Total Weight based on Bundle Quantity. Adds Bundle Qty & Custom Quantity to Sales, Delivery, and Invoices.",
-    "depends": ["sale_management", "stock", "account", "purchase", "purchase_stock", "mq_delivery_driver_info"],
+    "depends": ["sale_management", "stock", "account", "purchase", "purchase_stock", "stock_dropshipping", "mq_delivery_driver_info"],
     "data": [
         "views/product_template_views.xml",
         "views/sale_order_views.xml",

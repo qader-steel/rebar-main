@@ -13,12 +13,16 @@ class AccountMoveLine(models.Model):
     def _onchange_mq_quantity(self):
         for line in self:
             line.quantity = line.mq_quantity
+            if line.product_id and not line.product_id.mq_is_bundle_weight:
+                line.mq_bundle_qty = 0.0
 
     @api.onchange('quantity')
     def _onchange_quantity_base(self):
         for line in self:
             if line.quantity != line.mq_quantity:
                 line.mq_quantity = line.quantity
+            if line.product_id and not line.product_id.mq_is_bundle_weight:
+                line.mq_bundle_qty = 0.0
 
     mq_qty_delivered = fields.Float(string="Delivered", compute="_compute_mq_qty_delivered", digits='Product Unit of Measure')
 
@@ -33,6 +37,29 @@ class AccountMoveLine(models.Model):
     def _compute_mq_qty_received(self):
         for line in self:
             line.mq_qty_received = line.purchase_line_id.qty_received if line.purchase_line_id else 0.0
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            product = self.env['product.product'].browse(vals.get('product_id'))
+            if product.exists() and not product.mq_is_bundle_weight:
+                vals['mq_bundle_qty'] = 0.0
+                if 'quantity' in vals:
+                    vals['mq_quantity'] = vals['quantity']
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super().write(vals)
+        res = super().write(vals)
+        for line in self:
+            if line.product_id and not line.product_id.mq_is_bundle_weight:
+                if line.mq_bundle_qty != 0.0 or line.mq_quantity != line.quantity:
+                    line.with_context(skip_sync=True).write({
+                        'mq_bundle_qty': 0.0,
+                        'mq_quantity': line.quantity,
+                    })
+        return res
 
 class AccountMove(models.Model):
     """
