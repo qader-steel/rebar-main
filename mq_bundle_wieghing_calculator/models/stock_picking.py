@@ -19,13 +19,23 @@ class StockMove(models.Model):
         for move in self:
             if move.product_uom_qty != move.mq_quantity:
                 move.mq_quantity = move.product_uom_qty
+            if move.product_id and not move.product_id.mq_is_bundle_weight:
+                move.mq_bundle_qty = 0.0
 
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            product = self.env['product.product'].browse(vals.get('product_id'))
+            if not product.exists():
+                continue
+            if not product.mq_is_bundle_weight:
+                vals['mq_bundle_qty'] = 0.0
+                if 'product_uom_qty' in vals:
+                    vals['mq_quantity'] = vals['product_uom_qty']
+                continue
             if 'sale_line_id' in vals and vals['sale_line_id']:
                 sale_line = self.env['sale.order.line'].browse(vals['sale_line_id'])
-                if sale_line.exists() and False not in (sale_line.mq_bundle_qty, sale_line.mq_quantity):
+                if sale_line.exists():
                     if 'mq_bundle_qty' not in vals or not vals['mq_bundle_qty']:
                         vals['mq_bundle_qty'] = sale_line.mq_bundle_qty
                     if 'mq_quantity' not in vals or not vals['mq_quantity']:
@@ -37,7 +47,51 @@ class StockMove(models.Model):
                         vals['mq_bundle_qty'] = purchase_line.mq_bundle_qty
                     if 'mq_quantity' not in vals or not vals['mq_quantity']:
                         vals['mq_quantity'] = purchase_line.mq_quantity
-        return super(StockMove, self).create(vals_list)
+        return super().create(vals_list)
+
+    def _get_linked_sale_lines(self):
+        sale_lines = self.env['sale.order.line']
+        if hasattr(self, 'sale_line_id') and self.sale_line_id:
+            sale_lines |= self.sale_line_id
+        return sale_lines.filtered(lambda l: l.exists())
+
+    def _get_linked_purchase_lines(self):
+        purchase_lines = self.env['purchase.order.line']
+        if hasattr(self, 'purchase_line_id') and self.purchase_line_id:
+            purchase_lines |= self.purchase_line_id
+        return purchase_lines.filtered(lambda l: l.exists())
+
+    def write(self, vals):
+        if self.env.context.get('skip_sync'):
+            return super().write(vals)
+        res = super().write(vals)
+        for move in self:
+            if move.product_id and not move.product_id.mq_is_bundle_weight:
+                if move.mq_bundle_qty != 0.0 or move.mq_quantity != move.product_uom_qty:
+                    move.with_context(skip_sync=True).write({
+                        'mq_bundle_qty': 0.0,
+                        'mq_quantity': move.product_uom_qty,
+                    })
+        if 'mq_bundle_qty' in vals or 'mq_quantity' in vals:
+            for move in self:
+                if move.product_id.mq_is_bundle_weight:
+                    for so_line in move._get_linked_sale_lines():
+                        so_vals = {}
+                        if 'mq_bundle_qty' in vals and so_line.mq_bundle_qty != move.mq_bundle_qty:
+                            so_vals['mq_bundle_qty'] = move.mq_bundle_qty
+                        if 'mq_quantity' in vals and so_line.mq_quantity != move.mq_quantity:
+                            so_vals['mq_quantity'] = move.mq_quantity
+                        if so_vals:
+                            so_line.with_context(skip_sync=True).write(so_vals)
+                    for po_line in move._get_linked_purchase_lines():
+                        po_vals = {}
+                        if 'mq_bundle_qty' in vals and po_line.mq_bundle_qty != move.mq_bundle_qty:
+                            po_vals['mq_bundle_qty'] = move.mq_bundle_qty
+                        if 'mq_quantity' in vals and po_line.mq_quantity != move.mq_quantity:
+                            po_vals['mq_quantity'] = move.mq_quantity
+                        if po_vals:
+                            po_line.with_context(skip_sync=True).write(po_vals)
+        return res
 
 
 class StockPicking(models.Model):

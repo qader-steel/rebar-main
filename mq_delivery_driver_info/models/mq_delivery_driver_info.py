@@ -37,6 +37,43 @@ class SaleOrder(models.Model):
     border_crossing_id = fields.Many2one("mq.border.crossing", string="Border Crossing")
     scale_no_id = fields.Many2one("mq.scale.no", string="Scale No")
 
+    def _get_linked_dropship_pos(self):
+        """Return dropship POs linked via stock.move sale_line_id → purchase_line_id.
+        This is the same mechanic used by mq_bundle_wieghing_calculator."""
+        self.ensure_one()
+        so_line_ids = self.order_line.ids
+        if not so_line_ids:
+            return self.env['purchase.order']
+        moves = self.env['stock.move'].search([('sale_line_id', 'in', so_line_ids)])
+        po_lines = moves.mapped('purchase_line_id').filtered(lambda l: l.exists())
+        return po_lines.mapped('order_id')
+
+    def action_confirm(self):
+        res = super().action_confirm()
+        # Push driver info to newly created dropship POs after confirmation
+        driver_fields = ['driver_name_id', 'driver_phone_id', 'car_plate_id', 'border_crossing_id', 'scale_no_id']
+        for order in self:
+            if any(order[f] for f in driver_fields):
+                purchase_orders = order._get_linked_dropship_pos()
+                if purchase_orders:
+                    purchase_orders.with_context(skip_driver_sync=True).write({
+                        f: order[f].id if order[f] else False for f in driver_fields
+                    })
+        return res
+
+    def write(self, vals):
+        if self.env.context.get('skip_driver_sync'):
+            return super().write(vals)
+        res = super().write(vals)
+        driver_fields = ['driver_name_id', 'driver_phone_id', 'car_plate_id', 'border_crossing_id', 'scale_no_id']
+        if any(f in vals for f in driver_fields):
+            for order in self:
+                purchase_orders = order._get_linked_dropship_pos()
+                if purchase_orders:
+                    po_vals = {f: order[f].id if order[f] else False for f in driver_fields if f in vals}
+                    purchase_orders.with_context(skip_driver_sync=True).write(po_vals)
+        return res
+
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
@@ -46,6 +83,32 @@ class PurchaseOrder(models.Model):
     car_plate_id = fields.Many2one("mq.car.plate", string="Car Plate No")
     border_crossing_id = fields.Many2one("mq.border.crossing", string="Border Crossing")
     scale_no_id = fields.Many2one("mq.scale.no", string="Scale No")
+
+    def _get_linked_sale_orders(self):
+        """Return sale orders linked via stock.move purchase_line_id → sale_line_id.
+        This is the same mechanic used by mq_bundle_wieghing_calculator."""
+        self.ensure_one()
+        po_line_ids = self.order_line.ids
+        if not po_line_ids:
+            return self.env['sale.order']
+        moves = self.env['stock.move'].search([('purchase_line_id', 'in', po_line_ids)])
+        so_lines = moves.mapped('sale_line_id').filtered(lambda l: l.exists())
+        return so_lines.mapped('order_id')
+
+    def write(self, vals):
+        if self.env.context.get('skip_driver_sync'):
+            return super().write(vals)
+        res = super().write(vals)
+        driver_fields = ['driver_name_id', 'driver_phone_id', 'car_plate_id', 'border_crossing_id', 'scale_no_id']
+        if any(f in vals for f in driver_fields):
+            for order in self:
+                sale_orders = order._get_linked_sale_orders()
+                if sale_orders:
+                    so_vals = {f: order[f].id if order[f] else False for f in driver_fields if f in vals}
+                    sale_orders.with_context(skip_driver_sync=True).write(so_vals)
+        return res
+
+
 
 
 class StockPicking(models.Model):
