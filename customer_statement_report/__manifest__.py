@@ -1,0 +1,15 @@
+{
+    'name': 'Customer Statement Report',
+    'version': '19.0.1.0.0',
+    'category': 'Accounting',
+    'summary': 'كشف حساب العميل مع تفاصيل المنتجات',
+    'depends': ['account', 'sale'],
+    'data': [
+        'security/ir.model.access.csv',
+        'wizard/customer_statement_wizard_views.xml',
+        'report/customer_statement_report.xml',
+        'report/customer_statement_templates.xml',
+    ],
+    'installable': True,
+    'license': 'LGPL-3',
+}
