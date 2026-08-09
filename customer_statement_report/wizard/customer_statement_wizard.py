@@ -6,17 +6,18 @@ class CustomerStatementReport(models.AbstractModel):
     _description = 'Customer Statement Report'
 
     def _get_report_values(self, docids, data=None):
-        wizard = self.env['customer.statement.wizard'].browse(docids)
+        wizard_id = data.get('wizard_id') if data else (docids[0] if docids else False)
+        wizard = self.env['customer.statement.wizard'].browse(wizard_id)
         stmt = wizard._get_statement_lines()
         return {
-            'doc_ids': docids,
+            'doc_ids': [wizard.id],
             'doc_model': 'customer.statement.wizard',
             'docs': wizard,
             'wizard': wizard,
             'stmt': stmt,
         }
 
-    
+
 class CustomerStatementWizard(models.TransientModel):
     _name = 'customer.statement.wizard'
     _description = 'Customer Statement Wizard'
@@ -28,6 +29,7 @@ class CustomerStatementWizard(models.TransientModel):
     def action_print_report(self):
         self.ensure_one()
         data = {
+            'wizard_id': self.id,
             'partner_id': self.partner_id.id,
             'date_from': str(self.date_from),
             'date_to': str(self.date_to),
@@ -49,7 +51,6 @@ class CustomerStatementWizard(models.TransientModel):
         lines = []
         balance = 0.0
 
-        # الرصيد الافتتاحي قبل date_from
         opening_moves = self.env['account.move'].search([
             ('partner_id', '=', self.partner_id.id),
             ('state', '=', 'posted'),
