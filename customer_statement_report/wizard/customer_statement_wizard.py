@@ -1,6 +1,22 @@
 from odoo import models, fields, api
 
 
+class CustomerStatementReport(models.AbstractModel):
+    _name = 'report.customer_statement_report.report_customer_statement_document'
+    _description = 'Customer Statement Report'
+
+    def _get_report_values(self, docids, data=None):
+        wizard = self.env['customer.statement.wizard'].browse(docids)
+        stmt = wizard._get_statement_lines()
+        return {
+            'doc_ids': docids,
+            'doc_model': 'customer.statement.wizard',
+            'docs': wizard,
+            'wizard': wizard,
+            'stmt': stmt,
+        }
+
+    
 class CustomerStatementWizard(models.TransientModel):
     _name = 'customer.statement.wizard'
     _description = 'Customer Statement Wizard'
@@ -13,8 +29,8 @@ class CustomerStatementWizard(models.TransientModel):
         self.ensure_one()
         data = {
             'partner_id': self.partner_id.id,
-            'date_from': self.date_from,
-            'date_to': self.date_to,
+            'date_from': str(self.date_from),
+            'date_to': str(self.date_to),
         }
         return self.env.ref(
             'customer_statement_report.action_report_customer_statement'
