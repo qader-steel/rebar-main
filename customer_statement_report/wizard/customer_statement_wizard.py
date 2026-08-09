@@ -2,7 +2,7 @@ from odoo import models, fields, api
 
 
 class CustomerStatementReport(models.AbstractModel):
-    _name = 'report.customer_statement_report.report_customer_statement_document'
+    _name = 'report.customer_statement_report.statement'
     _description = 'Customer Statement Report'
 
     def _get_report_values(self, docids, data=None):
