@@ -1769,8 +1769,6 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-
-
 import logging
 
 from odoo import api, models
@@ -1788,7 +1786,7 @@ class CustomerStatementReport(models.AbstractModel):
 
         _logger.warning("")
         _logger.warning("=" * 120)
-        _logger.warning("CUSTOMER STATEMENT - DEEP QUANTITY/PRICE DIAGNOSTIC START")
+        _logger.warning("CUSTOMER STATEMENT - VENDOR QUANTITY/PRICE FIX START")
         _logger.warning("=" * 120)
 
         # ==========================================================
@@ -1805,6 +1803,7 @@ class CustomerStatementReport(models.AbstractModel):
 
         if not selected_lines:
             _logger.warning("NO SELECTED AML")
+
             return {
                 'doc_ids': docids,
                 'doc_model': 'account.move.line',
@@ -1815,61 +1814,175 @@ class CustomerStatementReport(models.AbstractModel):
             }
 
         # ==========================================================
-        # 2. DEEP INSPECTION FUNCTION
+        # 2. SAFE FIELD ACCESS
         # ==========================================================
 
-        def inspect_aml(line):
+        def safe_value(record, field_name, default=None):
+
+            if not record:
+                return default
+
+            if field_name not in record._fields:
+                return default
+
+            try:
+                return record[field_name]
+            except Exception as exc:
+                _logger.warning(
+                    "SAFE VALUE ERROR | MODEL=%s | ID=%s | FIELD=%s | ERROR=%s",
+                    record._name,
+                    record.id,
+                    field_name,
+                    exc,
+                )
+                return default
+
+        # ==========================================================
+        # 3. DETERMINE PARTNER KIND
+        # ==========================================================
+
+        def get_partner_kind(partner):
+
+            if not partner:
+                return "customer"
+
+            supplier_rank = getattr(partner, "supplier_rank", 0) or 0
+            customer_rank = getattr(partner, "customer_rank", 0) or 0
+
+            if supplier_rank > customer_rank:
+                return "vendor"
+
+            if customer_rank > supplier_rank:
+                return "customer"
+
+            if supplier_rank:
+                return "vendor"
+
+            return "customer"
+
+        # ==========================================================
+        # 4. DETERMINE CONTROL ACCOUNT
+        # ==========================================================
+
+        def get_control_account(partner_lines, partner_kind):
+
+            expected_type = (
+                "liability_payable"
+                if partner_kind == "vendor"
+                else "asset_receivable"
+            )
+
+            # ------------------------------------------------------
+            # First: find account by account_type
+            # ------------------------------------------------------
+
+            candidates = partner_lines.filtered(
+                lambda l:
+                    l.account_id
+                    and l.account_id.account_type == expected_type
+            ).mapped("account_id")
+
+            candidates = candidates.exists()
+
+            if candidates:
+                # Prefer the account having the highest number of lines.
+                counts = {}
+
+                for account in candidates:
+                    counts[account.id] = len(
+                        partner_lines.filtered(
+                            lambda l: l.account_id == account
+                        )
+                    )
+
+                selected_account = max(
+                    candidates,
+                    key=lambda a: counts.get(a.id, 0),
+                )
+
+                _logger.warning(
+                    "CONTROL ACCOUNT FOUND | "
+                    "PARTNER=%s | KIND=%s | TYPE=%s | "
+                    "ACCOUNT=%s | CODE=%s | CANDIDATES=%s",
+                    partner_lines[:1].partner_id.display_name
+                    if partner_lines[:1].partner_id
+                    else None,
+                    partner_kind,
+                    expected_type,
+                    selected_account.display_name,
+                    selected_account.code,
+                    [
+                        (
+                            a.id,
+                            a.code,
+                            a.name,
+                            counts.get(a.id, 0),
+                        )
+                        for a in candidates
+                    ],
+                )
+
+                return selected_account
+
+            # ------------------------------------------------------
+            # Fallback: none found
+            # ------------------------------------------------------
+
+            _logger.warning(
+                "CONTROL ACCOUNT NOT FOUND | KIND=%s | EXPECTED_TYPE=%s | "
+                "ACCOUNTS=%s",
+                partner_kind,
+                expected_type,
+                [
+                    (
+                        l.account_id.id,
+                        l.account_id.code,
+                        l.account_id.name,
+                        l.account_id.account_type,
+                    )
+                    for l in partner_lines
+                    if l.account_id
+                ],
+            )
+
+            return self.env['account.account']
+
+        # ==========================================================
+        # 5. BUILD ONE REPORT ROW
+        # ==========================================================
+
+        def inspect_aml(line, partner_kind, control_account):
             """
-            Build one report row from account.move.line.
+            Build one report row.
 
-            IMPORTANT:
-            For vendor purchase documents, quantity/UOM/price must come from
-            account.move.line.purchase_line_id (purchase.order.line), NOT from
-            account.move.line.quantity / price_unit.
+            CUSTOMER:
+                quantity = account.move.line.quantity
+                price    = account.move.line.price_unit
 
-            For customer documents, AML quantity/price are used.
+            VENDOR:
+                If purchase_line_id exists:
+                    quantity = purchase.order.line.product_qty
+                    UOM      = purchase.order.line.product_uom_id
+                    price    = purchase.order.line.price_unit
 
-            This function also contains extensive diagnostics so we can identify
-            exactly where values are coming from.
+                Otherwise fallback to AML values.
+
+            Balance:
+                ONLY control account affects balance.
+
+                Vendor:
+                    credit - debit
+
+                Customer:
+                    debit - credit
             """
-
-            # ------------------------------------------------------------------
-            # BASIC AML INFORMATION
-            # ------------------------------------------------------------------
 
             move = line.move_id
             partner = line.partner_id
 
-            partner_kind = "customer"
-            if partner:
-                if getattr(partner, "supplier_rank", 0) > getattr(partner, "customer_rank", 0):
-                    partner_kind = "vendor"
-                elif getattr(partner, "customer_rank", 0) > getattr(partner, "supplier_rank", 0):
-                    partner_kind = "customer"
-                elif getattr(partner, "supplier_rank", 0):
-                    partner_kind = "vendor"
-
-            purchase_line = line.purchase_line_id if "purchase_line_id" in line._fields else False
-
-            # ------------------------------------------------------------------
-            # FIELD EXISTENCE / SAFE ACCESS
-            # ------------------------------------------------------------------
-
-            def safe_value(record, field_name, default=None):
-                if not record:
-                    return default
-
-                if field_name not in record._fields:
-                    return default
-
-                try:
-                    return record[field_name]
-                except Exception:
-                    return default
-
-            # ------------------------------------------------------------------
-            # RAW AML VALUES
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # AML RAW VALUES
+            # ------------------------------------------------------
 
             aml_product = safe_value(line, "product_id")
             aml_quantity = safe_value(line, "quantity", 0.0) or 0.0
@@ -1877,9 +1990,18 @@ class CustomerStatementReport(models.AbstractModel):
             aml_debit = safe_value(line, "debit", 0.0) or 0.0
             aml_credit = safe_value(line, "credit", 0.0) or 0.0
 
-            # ------------------------------------------------------------------
-            # PURCHASE ORDER LINE VALUES
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # PURCHASE LINE
+            # ------------------------------------------------------
+
+            purchase_line = False
+
+            if "purchase_line_id" in line._fields:
+                purchase_line = safe_value(
+                    line,
+                    "purchase_line_id",
+                    False,
+                )
 
             purchase_product = False
             purchase_qty = 0.0
@@ -1888,49 +2010,61 @@ class CustomerStatementReport(models.AbstractModel):
             purchase_order = False
 
             if purchase_line:
+
                 purchase_product = safe_value(
                     purchase_line,
-                    "product_id"
+                    "product_id",
+                    False,
                 )
 
                 purchase_qty = safe_value(
                     purchase_line,
                     "product_qty",
-                    0.0
+                    0.0,
                 ) or 0.0
 
                 purchase_uom = safe_value(
                     purchase_line,
-                    "product_uom_id"
+                    "product_uom_id",
+                    False,
                 )
 
                 purchase_price_unit = safe_value(
                     purchase_line,
                     "price_unit",
-                    0.0
+                    0.0,
                 ) or 0.0
 
                 purchase_order = safe_value(
                     purchase_line,
-                    "order_id"
+                    "order_id",
+                    False,
                 )
 
-            # ------------------------------------------------------------------
-            # DIAGNOSTIC LOGGING
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # START DIAGNOSTIC
+            # ------------------------------------------------------
 
-            _logger.warning("=" * 100)
-            _logger.warning("INSPECT AML - START")
-            _logger.warning("=" * 100)
+            _logger.warning("")
+            _logger.warning("=" * 110)
+            _logger.warning("INSPECT AML START")
+            _logger.warning("=" * 110)
 
             _logger.warning(
                 "AML BASIC | "
-                "id=%s | date=%s | move=%s | account=%s | partner=%s | "
+                "id=%s | date=%s | move=%s | move_type=%s | "
+                "account=%s | account_type=%s | partner=%s | "
                 "display_type=%s | partner_kind=%s",
                 line.id,
                 line.date,
                 move.name if move else None,
-                line.account_id.display_name if line.account_id else None,
+                move.move_type if move else None,
+                line.account_id.display_name
+                if line.account_id
+                else None,
+                line.account_id.account_type
+                if line.account_id
+                else None,
                 partner.display_name if partner else None,
                 line.display_type,
                 partner_kind,
@@ -1938,8 +2072,11 @@ class CustomerStatementReport(models.AbstractModel):
 
             _logger.warning(
                 "AML RAW | "
-                "product=%s | quantity=%s | price_unit=%s | debit=%s | credit=%s",
-                aml_product.display_name if aml_product else None,
+                "product=%s | quantity=%s | price_unit=%s | "
+                "debit=%s | credit=%s",
+                aml_product.display_name
+                if aml_product
+                else None,
                 aml_quantity,
                 aml_price_unit,
                 aml_debit,
@@ -1950,86 +2087,125 @@ class CustomerStatementReport(models.AbstractModel):
                 "PURCHASE LINK | "
                 "purchase_line_id=%s | purchase_order=%s",
                 purchase_line.id if purchase_line else None,
-                purchase_order.name if purchase_order else None,
+                purchase_order.name
+                if purchase_order
+                else None,
             )
 
             if purchase_line:
+
                 _logger.warning(
                     "PURCHASE RAW | "
-                    "product=%s | product_qty=%s | product_uom_id=%s | "
-                    "product_uom=%s | price_unit=%s",
-                    purchase_product.display_name if purchase_product else None,
+                    "PO_LINE=%s | product=%s | product_qty=%s | "
+                    "product_uom_id=%s | product_uom=%s | price_unit=%s",
+                    purchase_line.id,
+                    purchase_product.display_name
+                    if purchase_product
+                    else None,
                     purchase_qty,
-                    purchase_uom.id if purchase_uom else None,
-                    purchase_uom.name if purchase_uom else None,
+                    purchase_uom.id
+                    if purchase_uom
+                    else None,
+                    purchase_uom.name
+                    if purchase_uom
+                    else None,
                     purchase_price_unit,
                 )
 
-            # ------------------------------------------------------------------
-            # DECIDE SOURCE OF QUANTITY / PRICE / UOM
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # DECIDE QUANTITY / PRICE / UOM
+            # ------------------------------------------------------
 
-            #
-            # VENDOR:
-            #   If AML is linked to a purchase.order.line, ALWAYS use:
-            #
-            #       purchase_line.product_qty
-            #       purchase_line.product_uom_id
-            #       purchase_line.price_unit
-            #
-            #   Never use AML.quantity for this case.
-            #
-            # CUSTOMER:
-            #   Use AML quantity / price_unit.
-            #
-
-            if (
+            use_purchase_values = (
                 partner_kind == "vendor"
                 and purchase_line
                 and line.display_type == "product"
-            ):
+            )
+
+            if use_purchase_values:
+
                 report_quantity = purchase_qty
                 report_unit_price = purchase_price_unit
                 report_uom = purchase_uom
 
-                quantity_source = "PURCHASE_LINE.product_qty"
-                price_source = "PURCHASE_LINE.price_unit"
-                uom_source = "PURCHASE_LINE.product_uom_id"
+                quantity_source = (
+                    "PURCHASE_LINE.product_qty"
+                )
+
+                price_source = (
+                    "PURCHASE_LINE.price_unit"
+                )
+
+                uom_source = (
+                    "PURCHASE_LINE.product_uom_id"
+                )
+
+                _logger.warning(
+                    "SOURCE SELECTED = PURCHASE ORDER LINE | "
+                    "AML_ID=%s | PO_LINE=%s",
+                    line.id,
+                    purchase_line.id,
+                )
 
             else:
+
                 report_quantity = aml_quantity
                 report_unit_price = aml_price_unit
-                report_uom = (
-                    safe_value(line, "product_uom_id")
-                    if "product_uom_id" in line._fields
-                    else False
+
+                report_uom = safe_value(
+                    line,
+                    "product_uom_id",
+                    False,
                 )
 
                 quantity_source = "AML.quantity"
                 price_source = "AML.price_unit"
                 uom_source = "AML.product_uom_id"
 
-            # ------------------------------------------------------------------
-            # PRODUCT
-            # ------------------------------------------------------------------
+                _logger.warning(
+                    "SOURCE SELECTED = ACCOUNT MOVE LINE | "
+                    "AML_ID=%s | DISPLAY_TYPE=%s",
+                    line.id,
+                    line.display_type,
+                )
 
-            if purchase_line and partner_kind == "vendor":
-                report_product = purchase_product or aml_product
+            # ------------------------------------------------------
+            # PRODUCT
+            # ------------------------------------------------------
+
+            if (
+                partner_kind == "vendor"
+                and purchase_line
+                and purchase_product
+            ):
+                report_product = purchase_product
+                product_source = "PURCHASE_LINE.product_id"
+
             else:
                 report_product = aml_product
+                product_source = "AML.product_id"
 
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
             # DESCRIPTION
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
 
             if report_product:
-                product_description = report_product.display_name
+                product_description = (
+                    report_product.display_name
+                )
             else:
-                product_description = move.name if move else ""
+                product_description = (
+                    line.name
+                    or (
+                        move.name
+                        if move
+                        else ""
+                    )
+                )
 
-            # ------------------------------------------------------------------
-            # UOM NAME
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # UOM
+            # ------------------------------------------------------
 
             report_uom_name = (
                 report_uom.name
@@ -2037,94 +2213,103 @@ class CustomerStatementReport(models.AbstractModel):
                 else ""
             )
 
-            # ------------------------------------------------------------------
-            # BALANCE EFFECT
-            # ------------------------------------------------------------------
-
-            #
-            # Balance must ONLY be affected by the control account.
-            #
-            # The control account is already determined by the caller.
-            #
-            # Therefore do not use debit/credit from arbitrary accounts here.
-            #
+            # ------------------------------------------------------
+            # CONTROL ACCOUNT CHECK
+            # ------------------------------------------------------
 
             is_control_account = False
 
             if line.account_id and control_account:
                 is_control_account = (
-                    line.account_id.id == control_account.id
+                    line.account_id.id
+                    == control_account.id
                 )
 
+            # ------------------------------------------------------
+            # BALANCE EFFECT
+            # ------------------------------------------------------
+
             if is_control_account:
+
                 if partner_kind == "vendor":
-                    balance_effect = aml_credit - aml_debit
+                    balance_effect = (
+                        aml_credit
+                        - aml_debit
+                    )
                 else:
-                    balance_effect = aml_debit - aml_credit
+                    balance_effect = (
+                        aml_debit
+                        - aml_credit
+                    )
+
             else:
                 balance_effect = 0.0
 
-            # ------------------------------------------------------------------
-            # DESCRIPTION FOR NON-PRODUCT LINES
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # NON PRODUCT DESCRIPTION
+            # ------------------------------------------------------
 
             if line.display_type != "product":
+
                 if move:
-                    if move.move_type in (
-                        "in_invoice",
-                        "in_refund",
-                        "in_receipt",
-                    ):
-                        if partner_kind == "vendor":
-                            product_description = move.name
-                    elif move.move_type in (
-                        "out_invoice",
-                        "out_refund",
-                        "out_receipt",
-                    ):
-                        product_description = move.name
+                    product_description = move.name
 
                 if not product_description:
-                    product_description = line.name or ""
+                    product_description = (
+                        line.name
+                        or ""
+                    )
 
-            # ------------------------------------------------------------------
-            # FINAL DIAGNOSTIC LOG
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # FINAL DIAGNOSTIC
+            # ------------------------------------------------------
 
             _logger.warning(
                 "REPORT SOURCE DECISION | "
                 "AML_ID=%s | MOVE=%s | PARTNER_KIND=%s | "
+                "DISPLAY_TYPE=%s | "
                 "PURCHASE_LINE=%s | "
+                "PRODUCT=%s <- %s | "
                 "QTY=%s <- %s | "
                 "UOM=%s <- %s | "
                 "PRICE=%s <- %s | "
-                "PRODUCT=%s | "
                 "DEBIT=%s | CREDIT=%s | "
-                "CONTROL=%s | BALANCE_EFFECT=%s",
+                "CONTROL_ACCOUNT=%s | "
+                "IS_CONTROL=%s | "
+                "BALANCE_EFFECT=%s",
                 line.id,
                 move.name if move else None,
                 partner_kind,
-                purchase_line.id if purchase_line else None,
+                line.display_type,
+                purchase_line.id
+                if purchase_line
+                else None,
+                report_product.display_name
+                if report_product
+                else None,
+                product_source,
                 report_quantity,
                 quantity_source,
                 report_uom_name,
                 uom_source,
                 report_unit_price,
                 price_source,
-                report_product.display_name if report_product else None,
                 aml_debit,
                 aml_credit,
+                control_account.code
+                if control_account
+                else None,
                 is_control_account,
                 balance_effect,
             )
 
-            _logger.warning("=" * 100)
-            _logger.warning("INSPECT AML - END")
-            _logger.warning("=" * 100)
+            _logger.warning("=" * 110)
+            _logger.warning("INSPECT AML END")
+            _logger.warning("=" * 110)
 
-            # ------------------------------------------------------------------
-            # RETURN REPORT ROW
-            # ------------------------------------------------------------------
+            # ------------------------------------------------------
+            # RETURN
+            # ------------------------------------------------------
 
             return {
                 "aml_id": line.id,
@@ -2157,11 +2342,13 @@ class CustomerStatementReport(models.AbstractModel):
 
                 "balance_effect": balance_effect,
 
-                # Optional technical/debug fields.
-                # These are useful while testing and can be removed later.
                 "quantity_source": quantity_source,
+
                 "price_source": price_source,
+
                 "uom_source": uom_source,
+
+                "product_source": product_source,
 
                 "purchase_line_id": (
                     purchase_line.id
@@ -2174,52 +2361,102 @@ class CustomerStatementReport(models.AbstractModel):
                     if purchase_order
                     else ""
                 ),
+
+                "account_id": (
+                    line.account_id.id
+                    if line.account_id
+                    else False
+                ),
+
+                "account_code": (
+                    line.account_id.code
+                    if line.account_id
+                    else ""
+                ),
+
+                "account_name": (
+                    line.account_id.name
+                    if line.account_id
+                    else ""
+                ),
+
+                "account_type": (
+                    line.account_id.account_type
+                    if line.account_id
+                    else ""
+                ),
+
+                "move_type": (
+                    move.move_type
+                    if move
+                    else ""
+                ),
             }
-        # ==========================================================
-        # 8. INSPECT ALL SELECTED LINES
-        # ==========================================================
-
-        for line in selected_lines.sorted(
-            key=lambda l: (
-                l.date,
-                l.move_id.id,
-                l.sequence,
-                l.id,
-            )
-        ):
-            inspect_aml(line)
 
         # ==========================================================
-        # 9. DATE RANGE
+        # 6. DATE RANGE
         # ==========================================================
 
-        dates = selected_lines.mapped('date')
+        dates = selected_lines.mapped("date")
 
         date_from = False
         date_to = False
 
         if data:
-            date_from = data.get('date_from') or False
-            date_to = data.get('date_to') or False
+            date_from = (
+                data.get("date_from")
+                or False
+            )
+
+            date_to = (
+                data.get("date_to")
+                or False
+            )
 
         if not date_from:
-            date_from = min(dates) if dates else False
+            date_from = (
+                min(dates)
+                if dates
+                else False
+            )
 
         if not date_to:
-            date_to = max(dates) if dates else False
+            date_to = (
+                max(dates)
+                if dates
+                else False
+            )
+
+        _logger.warning(
+            "DATE RANGE | FROM=%s | TO=%s",
+            date_from,
+            date_to,
+        )
 
         # ==========================================================
-        # 10. PARTNERS
+        # 7. PARTNERS
         # ==========================================================
 
-        partners = selected_lines.mapped('partner_id')
+        partners = selected_lines.mapped(
+            "partner_id"
+        ).exists()
+
+        _logger.warning(
+            "PARTNERS | %s",
+            partners.mapped("display_name"),
+        )
 
         statements = []
+
+        # ==========================================================
+        # 8. PROCESS EACH PARTNER
+        # ==========================================================
 
         for partner in partners:
 
             partner_selected = selected_lines.filtered(
-                lambda l: l.partner_id == partner
+                lambda l:
+                    l.partner_id == partner
             ).sorted(
                 key=lambda l: (
                     l.date,
@@ -2229,21 +2466,132 @@ class CustomerStatementReport(models.AbstractModel):
                 )
             )
 
-            # ------------------------------------------------------
-            # Opening
-            # ------------------------------------------------------
-
-            opening_lines = self.env['account.move.line'].search([
-                ('partner_id', '=', partner.id),
-                ('parent_state', '=', 'posted'),
-                ('date', '<', date_from),
-            ])
-
-            opening_balance = sum(
-                opening_lines.mapped('debit')
-            ) - sum(
-                opening_lines.mapped('credit')
+            partner_kind = get_partner_kind(
+                partner
             )
+
+            # ------------------------------------------------------
+            # CONTROL ACCOUNT
+            # ------------------------------------------------------
+
+            control_account = get_control_account(
+                partner_selected,
+                partner_kind,
+            )
+
+            _logger.warning("")
+            _logger.warning("=" * 120)
+            _logger.warning(
+                "PROCESS PARTNER | %s",
+                partner.display_name,
+            )
+            _logger.warning("=" * 120)
+
+            _logger.warning(
+                "PARTNER KIND = %s",
+                partner_kind,
+            )
+
+            _logger.warning(
+                "SELECTED AML COUNT = %s",
+                len(partner_selected),
+            )
+
+            _logger.warning(
+                "CONTROL ACCOUNT = %s",
+                control_account.display_name
+                if control_account
+                else "NONE",
+            )
+
+            _logger.warning(
+                "CONTROL ACCOUNT CODE = %s",
+                control_account.code
+                if control_account
+                else "NONE",
+            )
+
+            # ======================================================
+            # 9. OPENING BALANCE
+            # ======================================================
+
+            opening_balance = 0.0
+
+            if date_from and control_account:
+
+                opening_lines = self.env[
+                    "account.move.line"
+                ].search([
+                    (
+                        "partner_id",
+                        "=",
+                        partner.id,
+                    ),
+                    (
+                        "account_id",
+                        "=",
+                        control_account.id,
+                    ),
+                    (
+                        "parent_state",
+                        "=",
+                        "posted",
+                    ),
+                    (
+                        "date",
+                        "<",
+                        date_from,
+                    ),
+                ])
+
+                opening_debit = sum(
+                    opening_lines.mapped("debit")
+                )
+
+                opening_credit = sum(
+                    opening_lines.mapped("credit")
+                )
+
+                if partner_kind == "vendor":
+                    opening_balance = (
+                        opening_credit
+                        - opening_debit
+                    )
+                else:
+                    opening_balance = (
+                        opening_debit
+                        - opening_credit
+                    )
+
+                _logger.warning(
+                    "OPENING | "
+                    "PARTNER=%s | KIND=%s | "
+                    "ACCOUNT=%s | LINES=%s | "
+                    "DEBIT=%s | CREDIT=%s | "
+                    "OPENING_BALANCE=%s",
+                    partner.display_name,
+                    partner_kind,
+                    control_account.code,
+                    len(opening_lines),
+                    opening_debit,
+                    opening_credit,
+                    opening_balance,
+                )
+
+            else:
+
+                _logger.warning(
+                    "OPENING SKIPPED | "
+                    "DATE_FROM=%s | CONTROL_ACCOUNT=%s",
+                    date_from,
+                    control_account.id
+                    if control_account
+                    else None,
+                )
+
+            # ======================================================
+            # 10. BUILD RESULT LINES
+            # ======================================================
 
             balance = opening_balance
 
@@ -2253,206 +2601,414 @@ class CustomerStatementReport(models.AbstractModel):
             total_debit = 0.0
             total_credit = 0.0
 
-            # ======================================================
-            # 11. BUILD REPORT
-            # ======================================================
-
             for line in partner_selected:
-
-                move = line.move_id
-                product = line.product_id
-
-                debit = line.debit or 0.0
-                credit = line.credit or 0.0
-
-                # --------------------------------------------------
-                # DEFAULT VALUES FROM AML
-                # --------------------------------------------------
-
-                quantity = line.quantity or 0.0
-                unit_price = line.price_unit or 0.0
-
-                product_name = (
-                    product.display_name
-                    if product
-                    else ''
-                )
 
                 # --------------------------------------------------
                 # IMPORTANT:
                 #
-                # For vendor bills, inspect invoice line.
+                # inspect_aml() is now the ACTUAL source of
+                # quantity/price/product/uom.
                 #
-                # We DO NOT change the values yet.
+                # We no longer read:
                 #
-                # We only log what would be available.
+                #     line.quantity
+                #     line.price_unit
+                #
+                # directly for the final report.
                 # --------------------------------------------------
 
-                if (
-                    move
-                    and move.move_type == 'in_invoice'
-                    and product
-                ):
-
-                    matching_invoice_lines = move.invoice_line_ids.filtered(
-                        lambda x:
-                            x.product_id == product
-                    )
-
-                    _logger.warning(
-                        "REPORT SOURCE CHECK | "
-                        "AML_ID=%s | MOVE=%s | PRODUCT=%s | "
-                        "AML_QTY=%s | AML_PRICE=%s | "
-                        "MATCHING_INVOICE_LINES=%s",
-                        line.id,
-                        move.name,
-                        product.display_name,
-                        line.quantity,
-                        line.price_unit,
-                        matching_invoice_lines.ids,
-                    )
-
-                    for inv_line in matching_invoice_lines:
-
-                        _logger.warning(
-                            "REPORT SOURCE CANDIDATE | "
-                            "AML_ID=%s | INV_LINE=%s | "
-                            "INV_QTY=%s | INV_PRICE=%s | "
-                            "INV_SUBTOTAL=%s",
-                            line.id,
-                            inv_line.id,
-                            inv_line.quantity,
-                            inv_line.price_unit,
-                            inv_line.price_subtotal,
-                        )
-
-                        if hasattr(inv_line, 'purchase_line_id'):
-
-                            po_line = inv_line.purchase_line_id
-
-                            if po_line:
-
-                                _logger.warning(
-                                    "REPORT SOURCE CANDIDATE PO | "
-                                    "AML_ID=%s | "
-                                    "PO_LINE=%s | "
-                                    "PO=%s | "
-                                    "PO_QTY=%s | "
-                                    "PO_PRICE=%s",
-                                    line.id,
-                                    po_line.id,
-                                    po_line.order_id.name
-                                    if po_line.order_id else None,
-                                    po_line.product_qty,
-                                    po_line.price_unit,
-                                )
+                row = inspect_aml(
+                    line,
+                    partner_kind,
+                    control_account,
+                )
 
                 # --------------------------------------------------
-                # BALANCE
+                # UPDATE BALANCE
                 # --------------------------------------------------
 
-                balance += debit - credit
+                balance += (
+                    row["balance_effect"]
+                )
 
-                total_qty += quantity
-                total_debit += debit
-                total_credit += credit
+                # --------------------------------------------------
+                # TOTALS
+                # --------------------------------------------------
+
+                total_qty += (
+                    row["quantity"]
+                    or 0.0
+                )
+
+                total_debit += (
+                    row["debit"]
+                    or 0.0
+                )
+
+                total_credit += (
+                    row["credit"]
+                    or 0.0
+                )
+
+                # --------------------------------------------------
+                # FINAL ROW
+                # --------------------------------------------------
 
                 result_lines.append({
-                    'aml_id': line.id,
-                    'date': line.date,
-                    'transaction': move.name,
-                    'product': product_name,
-                    'description': line.name or '',
-                    'quantity': quantity,
-                    'unit_price': unit_price,
-                    'debit': debit,
-                    'credit': credit,
-                    'balance': balance,
+                    "aml_id": row["aml_id"],
 
-                    'account_id': (
-                        line.account_id.id
-                        if line.account_id else False
-                    ),
+                    "date": row["date"],
 
-                    'account_code': (
-                        line.account_id.code
-                        if line.account_id else ''
-                    ),
+                    "transaction": row["transaction"],
 
-                    'account_name': (
-                        line.account_id.name
-                        if line.account_id else ''
-                    ),
+                    "product": row["product"],
 
-                    'account_type': (
-                        line.account_id.account_type
-                        if line.account_id else ''
-                    ),
+                    "description": row["description"],
 
-                    'move_type': move.move_type,
+                    "quantity": row["quantity"],
+
+                    "unit_price": row["unit_price"],
+
+                    "uom": row["uom"],
+
+                    "debit": row["debit"],
+
+                    "credit": row["credit"],
+
+                    "balance": balance,
+
+                    "balance_effect": row[
+                        "balance_effect"
+                    ],
+
+                    "account_id": row[
+                        "account_id"
+                    ],
+
+                    "account_code": row[
+                        "account_code"
+                    ],
+
+                    "account_name": row[
+                        "account_name"
+                    ],
+
+                    "account_type": row[
+                        "account_type"
+                    ],
+
+                    "move_type": row[
+                        "move_type"
+                    ],
+
+                    "quantity_source": row[
+                        "quantity_source"
+                    ],
+
+                    "price_source": row[
+                        "price_source"
+                    ],
+
+                    "uom_source": row[
+                        "uom_source"
+                    ],
+
+                    "product_source": row[
+                        "product_source"
+                    ],
+
+                    "purchase_line_id": row[
+                        "purchase_line_id"
+                    ],
+
+                    "purchase_order": row[
+                        "purchase_order"
+                    ],
                 })
 
+                # --------------------------------------------------
+                # CRITICAL FINAL LOG
+                # --------------------------------------------------
+
+                _logger.warning(
+                    "FINAL REPORT ROW | "
+                    "AML=%s | MOVE=%s | "
+                    "ACCOUNT=%s | "
+                    "PRODUCT=%s | "
+                    "QTY=%s | "
+                    "UOM=%s | "
+                    "PRICE=%s | "
+                    "DEBIT=%s | CREDIT=%s | "
+                    "BALANCE_EFFECT=%s | "
+                    "BALANCE=%s | "
+                    "QTY_SOURCE=%s | "
+                    "PRICE_SOURCE=%s | "
+                    "PO_LINE=%s",
+                    row["aml_id"],
+                    row["transaction"],
+                    row["account_code"],
+                    row["product"],
+                    row["quantity"],
+                    row["uom"],
+                    row["unit_price"],
+                    row["debit"],
+                    row["credit"],
+                    row["balance_effect"],
+                    balance,
+                    row["quantity_source"],
+                    row["price_source"],
+                    row["purchase_line_id"],
+                )
+
             # ======================================================
-            # 12. FINAL DIAGNOSTIC SUMMARY
+            # 11. VALIDATION
             # ======================================================
+
+            control_debit = 0.0
+            control_credit = 0.0
+
+            if control_account:
+
+                control_rows = partner_selected.filtered(
+                    lambda l:
+                        l.account_id
+                        and l.account_id.id
+                        == control_account.id
+                )
+
+                control_debit = sum(
+                    control_rows.mapped("debit")
+                )
+
+                control_credit = sum(
+                    control_rows.mapped("credit")
+                )
+
+            if partner_kind == "vendor":
+                expected_closing = (
+                    opening_balance
+                    + control_credit
+                    - control_debit
+                )
+            else:
+                expected_closing = (
+                    opening_balance
+                    + control_debit
+                    - control_credit
+                )
 
             _logger.warning("")
             _logger.warning("=" * 120)
             _logger.warning(
-                "REPORT DIAGNOSTIC SUMMARY | PARTNER=%s",
-                partner.display_name,
+                "PARTNER FINAL VALIDATION"
             )
             _logger.warning("=" * 120)
 
-            for row in result_lines:
+            _logger.warning(
+                "PARTNER = %s",
+                partner.display_name,
+            )
+
+            _logger.warning(
+                "KIND = %s",
+                partner_kind,
+            )
+
+            _logger.warning(
+                "CONTROL ACCOUNT = %s",
+                control_account.code
+                if control_account
+                else None,
+            )
+
+            _logger.warning(
+                "RESULT LINES = %s",
+                len(result_lines),
+            )
+
+            _logger.warning(
+                "TOTAL QTY = %s",
+                total_qty,
+            )
+
+            _logger.warning(
+                "TOTAL DEBIT = %s",
+                total_debit,
+            )
+
+            _logger.warning(
+                "TOTAL CREDIT = %s",
+                total_credit,
+            )
+
+            _logger.warning(
+                "CONTROL DEBIT = %s",
+                control_debit,
+            )
+
+            _logger.warning(
+                "CONTROL CREDIT = %s",
+                control_credit,
+            )
+
+            _logger.warning(
+                "OPENING = %s",
+                opening_balance,
+            )
+
+            _logger.warning(
+                "EXPECTED CLOSING = %s",
+                expected_closing,
+            )
+
+            _logger.warning(
+                "ACTUAL CLOSING = %s",
+                balance,
+            )
+
+            _logger.warning(
+                "CLOSING DIFFERENCE = %s",
+                balance - expected_closing,
+            )
+
+            # ======================================================
+            # 12. SOURCE SUMMARY
+            # ======================================================
+
+            purchase_source_rows = [
+                row
+                for row in result_lines
+                if row["quantity_source"]
+                == "PURCHASE_LINE.product_qty"
+            ]
+
+            aml_source_rows = [
+                row
+                for row in result_lines
+                if row["quantity_source"]
+                == "AML.quantity"
+            ]
+
+            _logger.warning(
+                "SOURCE SUMMARY | "
+                "PURCHASE_LINE_ROWS=%s | "
+                "AML_ROWS=%s",
+                len(purchase_source_rows),
+                len(aml_source_rows),
+            )
+
+            for row in purchase_source_rows:
 
                 _logger.warning(
-                    "FINAL REPORT ROW | "
-                    "AML_ID=%s | MOVE=%s | PRODUCT=%s | "
-                    "QTY=%s | PRICE=%s | DEBIT=%s | CREDIT=%s | "
-                    "BALANCE=%s",
-                    row['aml_id'],
-                    row['transaction'],
-                    row['product'],
-                    row['quantity'],
-                    row['unit_price'],
-                    row['debit'],
-                    row['credit'],
-                    row['balance'],
+                    "PURCHASE SOURCE RESULT | "
+                    "AML=%s | MOVE=%s | "
+                    "PO_LINE=%s | PRODUCT=%s | "
+                    "QTY=%s | UOM=%s | PRICE=%s",
+                    row["aml_id"],
+                    row["transaction"],
+                    row["purchase_line_id"],
+                    row["product"],
+                    row["quantity"],
+                    row["uom"],
+                    row["unit_price"],
                 )
 
+            # ======================================================
+            # 13. STATEMENT
+            # ======================================================
+
             statements.append({
-                'partner': partner,
-                'opening_balance': opening_balance,
-                'lines': result_lines,
-                'closing_balance': balance,
-                'total_qty': total_qty,
-                'total_debit': total_debit,
-                'total_credit': total_credit,
-                'accounts': [],
+                "partner": partner,
+
+                "opening_balance": opening_balance,
+
+                "lines": result_lines,
+
+                "closing_balance": balance,
+
+                "total_qty": total_qty,
+
+                "total_debit": total_debit,
+
+                "total_credit": total_credit,
+
+                "accounts": [],
+
+                "partner_kind": partner_kind,
+
+                "control_account": (
+                    control_account
+                    if control_account
+                    else False
+                ),
             })
 
         # ==========================================================
-        # 13. END
+        # 14. GLOBAL VALIDATION
+        # ==========================================================
+
+        total_report_lines = sum(
+            len(statement["lines"])
+            for statement in statements
+        )
+
+        _logger.warning("")
+        _logger.warning("=" * 120)
+        _logger.warning(
+            "GLOBAL VALIDATION"
+        )
+        _logger.warning("=" * 120)
+
+        _logger.warning(
+            "SELECTED AML = %s",
+            len(selected_lines),
+        )
+
+        _logger.warning(
+            "REPORT LINES = %s",
+            total_report_lines,
+        )
+
+        if (
+            len(selected_lines)
+            == total_report_lines
+        ):
+            _logger.warning(
+                "SUCCESS: EVERY AML HAS ONE REPORT ROW"
+            )
+        else:
+            _logger.warning(
+                "WARNING: AML/REPORT ROW COUNT MISMATCH"
+            )
+
+        # ==========================================================
+        # 15. END
         # ==========================================================
 
         _logger.warning("")
         _logger.warning("=" * 120)
-        _logger.warning("CUSTOMER STATEMENT - DEEP QUANTITY/PRICE DIAGNOSTIC END")
+        _logger.warning(
+            "CUSTOMER STATEMENT - VENDOR QUANTITY/PRICE FIX END"
+        )
         _logger.warning("=" * 120)
 
+        # ==========================================================
+        # 16. RETURN REPORT DATA
+        # ==========================================================
+
         return {
-            'doc_ids': docids,
-            'doc_model': 'account.move.line',
-            'docs': selected_lines,
-            'statements': statements,
-            'date_from': date_from,
-            'date_to': date_to,
+            "doc_ids": docids,
+
+            "doc_model": "account.move.line",
+
+            "docs": selected_lines,
+
+            "statements": statements,
+
+            "date_from": date_from,
+
+            "date_to": date_to,
         }
-
-
-
-
 
 
 
