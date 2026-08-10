@@ -395,192 +395,138 @@
                     </div>
 
 
-                    <!-- =====================================================
-                         MAIN STATEMENT TABLE
-                         ===================================================== -->
+                    <!-- =========================================================
+                        MAIN TABLE + TOTAL
+                        ========================================================= -->
 
-                    <table class="table table-sm table-bordered"
-                           style="
-                                width:100% !important;
-                                max-width:100% !important;
-                                table-layout:fixed !important;
-                                border-collapse:collapse !important;
-                                border-spacing:0 !important;
-                                margin:0 0 8px 0 !important;
-                                padding:0 !important;
-                                font-size:8pt !important;
-                                line-height:1.15 !important;
-                                box-sizing:border-box !important;
-                                overflow:hidden !important;
-                           ">
+                    <table
+                        class="table table-sm table-bordered statement-table"
+                        style="
+                            width:100%;
+                            table-layout:fixed;
+                            border-collapse:collapse;
+                            margin:0;
+                        "
+                    >
 
-
-                        <!-- =================================================
-                             COLUMN WIDTHS
-                             Total = 100%
-                             ================================================= -->
+                        <!-- =====================================================
+                            FIXED COLUMN WIDTHS
+                            مجموعها = 100%
+                            ===================================================== -->
 
                         <colgroup>
-
-                            <!-- Date -->
-                            <col style="width:8%;"/>
-
-                            <!-- Transaction -->
+                            <col style="width:7%;"/>
                             <col style="width:13%;"/>
-
-                            <!-- Description -->
-                            <col style="width:24%;"/>
-
-                            <!-- Quantity -->
+                            <col style="width:25%;"/>
                             <col style="width:8%;"/>
-
-                            <!-- Unit Price -->
-                            <col style="width:11%;"/>
-
-                            <!-- Debit -->
+                            <col style="width:10%;"/>
                             <col style="width:12%;"/>
-
-                            <!-- Credit -->
                             <col style="width:12%;"/>
-
-                            <!-- Balance -->
-                            <col style="width:12%;"/>
-
+                            <col style="width:13%;"/>
                         </colgroup>
 
 
-                        <!-- =================================================
-                             TABLE HEADER
-                             ================================================= -->
+                        <!-- =====================================================
+                            HEADER
+                            ===================================================== -->
 
                         <thead>
 
                             <tr>
 
-                                <th style="
-                                    width:8%;
-                                    padding:4px 3px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Date
                                 </th>
 
-
-                                <th style="
-                                    width:13%;
-                                    padding:4px 3px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Transaction
                                 </th>
 
-
-                                <th style="
-                                    width:24%;
-                                    padding:4px 3px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Product / Description
                                 </th>
 
-
-                                <th style="
-                                    width:8%;
-                                    padding:4px 2px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Quantity
                                 </th>
 
-
-                                <th style="
-                                    width:11%;
-                                    padding:4px 2px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Unit Price
                                 </th>
 
-
-                                <th style="
-                                    width:12%;
-                                    padding:4px 2px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Debit
                                 </th>
 
-
-                                <th style="
-                                    width:12%;
-                                    padding:4px 2px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Credit
                                 </th>
 
-
-                                <th style="
-                                    width:12%;
-                                    padding:4px 2px !important;
-                                    font-size:8pt !important;
-                                    line-height:1.1 !important;
-                                    text-align:center;
-                                    vertical-align:middle;
-                                    white-space:normal;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                    box-sizing:border-box;
-                                ">
+                                <th
+                                    style="
+                                        font-size:6.5pt;
+                                        padding:2px 2px;
+                                        text-align:center;
+                                        line-height:1.05;
+                                        white-space:normal;
+                                    "
+                                >
                                     Balance
                                 </th>
 
@@ -589,9 +535,9 @@
                         </thead>
 
 
-                        <!-- =================================================
-                             TABLE BODY
-                             ================================================= -->
+                        <!-- =====================================================
+                            DATA
+                            ===================================================== -->
 
                         <tbody>
 
@@ -599,83 +545,68 @@
 
                                 <tr>
 
+                                    <!-- DATE -->
 
-                                    <!-- ================================
-                                         DATE
-                                         ================================ -->
-
-                                    <td style="
-                                        width:8%;
-                                        padding:3px 3px !important;
-                                        font-size:7.5pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:left;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:6pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
                                         <span t-esc="line['date']"/>
                                     </td>
 
 
-                                    <!-- ================================
-                                         TRANSACTION
-                                         ================================ -->
+                                    <!-- TRANSACTION -->
 
-                                    <td style="
-                                        width:13%;
-                                        padding:3px 3px !important;
-                                        font-size:7.5pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:left;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:6pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
                                         <span t-esc="line['transaction']"/>
                                     </td>
 
 
-                                    <!-- ================================
-                                         PRODUCT / DESCRIPTION
-                                         ================================ -->
+                                    <!-- PRODUCT -->
 
-                                    <td style="
-                                        width:24%;
-                                        padding:3px 3px !important;
-                                        font-size:7.5pt !important;
-                                        line-height:1.15 !important;
-                                        vertical-align:middle;
-                                        text-align:left;
-                                        white-space:pre-line !important;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:6pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                            white-space:pre-line;
+                                        "
+                                    >
                                         <span t-esc="line['product']"/>
                                     </td>
 
 
-                                    <!-- ================================
-                                         QUANTITY
-                                         ================================ -->
+                                    <!-- QUANTITY -->
 
-                                    <td style="
-                                        width:8%;
-                                        padding:3px 2px !important;
-                                        font-size:7.2pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:right;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:5.8pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            text-align:right;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
 
                                         <t t-if="line['quantity'] is not None">
 
@@ -690,22 +621,19 @@
                                     </td>
 
 
-                                    <!-- ================================
-                                         UNIT PRICE
-                                         ================================ -->
+                                    <!-- UNIT PRICE -->
 
-                                    <td style="
-                                        width:11%;
-                                        padding:3px 2px !important;
-                                        font-size:7.2pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:right;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:5.8pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            text-align:right;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
 
                                         <t t-if="line['unit_price'] is not None">
 
@@ -720,22 +648,19 @@
                                     </td>
 
 
-                                    <!-- ================================
-                                         DEBIT
-                                         ================================ -->
+                                    <!-- DEBIT -->
 
-                                    <td style="
-                                        width:12%;
-                                        padding:3px 2px !important;
-                                        font-size:7.2pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:right;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:5.8pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            text-align:right;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
 
                                         <span>
                                             <t t-esc="'{:,.2f}'.format(
@@ -746,22 +671,19 @@
                                     </td>
 
 
-                                    <!-- ================================
-                                         CREDIT
-                                         ================================ -->
+                                    <!-- CREDIT -->
 
-                                    <td style="
-                                        width:12%;
-                                        padding:3px 2px !important;
-                                        font-size:7.2pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:right;
-                                        white-space:normal;
-                                        word-wrap:break-word;
-                                        overflow:hidden;
-                                        box-sizing:border-box;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:5.8pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            text-align:right;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                        "
+                                    >
 
                                         <span>
                                             <t t-esc="'{:,.2f}'.format(
@@ -772,35 +694,31 @@
                                     </td>
 
 
-                                    <!-- ================================
-                                         BALANCE
-                                         ================================ -->
+                                    <!-- BALANCE -->
 
-                                    <td style="
-                                        width:12%;
-                                        padding:3px 2px !important;
-                                        font-size:7pt !important;
-                                        line-height:1.1 !important;
-                                        vertical-align:middle;
-                                        text-align:right;
-                                        white-space:normal !important;
-                                        word-wrap:break-word !important;
-                                        overflow:hidden !important;
-                                        box-sizing:border-box !important;
-                                    ">
+                                    <td
+                                        style="
+                                            font-size:5.6pt;
+                                            padding:2px;
+                                            line-height:1.05;
+                                            vertical-align:middle;
+                                            text-align:right;
+                                            word-wrap:break-word;
+                                            overflow:hidden;
+                                            white-space:normal;
+                                        "
+                                    >
 
-                                        <strong style="
-                                            font-size:7pt !important;
-                                            font-weight:bold;
-                                            line-height:1.1 !important;
-                                            white-space:normal !important;
-                                            word-wrap:break-word !important;
-                                        ">
-
+                                        <strong
+                                            style="
+                                                font-size:5.6pt;
+                                                font-weight:bold;
+                                                word-wrap:break-word;
+                                            "
+                                        >
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['balance']
                                             )"/>
-
                                         </strong>
 
                                     </td>
@@ -809,139 +727,137 @@
 
                             </t>
 
-                        </tbody>
 
-                    </table>
-
-
-                    <!-- =====================================================
-                         TOTAL
-                         ===================================================== -->
-
-                    <div style="
-                        width:100%;
-                        margin-top:4px;
-                        margin-bottom:8px;
-                        page-break-inside:avoid;
-                        overflow:hidden;
-                    ">
-
-                        <table class="table table-sm table-bordered"
-                               style="
-                                    width:100% !important;
-                                    max-width:100% !important;
-                                    table-layout:fixed !important;
-                                    border-collapse:collapse !important;
-                                    margin:0 !important;
-                                    font-size:7.5pt !important;
-                                    line-height:1.1 !important;
-                                ">
-
-                            <colgroup>
-
-                                <col style="width:32%;"/>
-                                <col style="width:8%;"/>
-                                <col style="width:11%;"/>
-                                <col style="width:12%;"/>
-                                <col style="width:12%;"/>
-                                <col style="width:25%;"/>
-
-                            </colgroup>
+                            <!-- =================================================
+                                TOTAL
+                                مهم:
+                                Total أصبح داخل نفس الجدول
+                                ================================================= -->
 
                             <tr>
 
-                                <th colspan="3"
+                                <!-- TOTAL LABEL -->
+
+                                <td
+                                    colspan="3"
                                     style="
-                                        padding:4px 3px !important;
-                                        font-size:7.5pt !important;
+                                        font-size:6.5pt;
+                                        font-weight:bold;
+                                        padding:3px 2px;
+                                        line-height:1.05;
                                         text-align:left;
+                                        vertical-align:middle;
+                                    "
+                                >
+                                    Total
+                                </td>
+
+
+                                <!-- TOTAL QUANTITY -->
+
+                                <td
+                                    style="
+                                        font-size:6pt;
+                                        font-weight:bold;
+                                        padding:3px 2px;
+                                        line-height:1.05;
+                                        text-align:right;
                                         vertical-align:middle;
                                         word-wrap:break-word;
                                         overflow:hidden;
-                                    ">
-                                    Total
-                                </th>
-
-
-                                <th style="
-                                    padding:4px 2px !important;
-                                    font-size:7.2pt !important;
-                                    text-align:right;
-                                    vertical-align:middle;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                ">
+                                    "
+                                >
 
                                     <t t-esc="'{:,.3f}'.format(
                                         stmt_data['total_qty']
                                     )"/>
 
-                                </th>
+                                </td>
 
 
-                                <th style="
-                                    padding:4px 2px !important;
-                                    font-size:7.2pt !important;
-                                    text-align:right;
-                                    vertical-align:middle;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                ">
-                                </th>
+                                <!-- EMPTY UNIT PRICE -->
+
+                                <td
+                                    style="
+                                        font-size:6pt;
+                                        padding:3px 2px;
+                                    "
+                                >
+                                </td>
 
 
-                                <th style="
-                                    padding:4px 2px !important;
-                                    font-size:7.2pt !important;
-                                    text-align:right;
-                                    vertical-align:middle;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                ">
+                                <!-- TOTAL DEBIT -->
+
+                                <td
+                                    style="
+                                        font-size:6pt;
+                                        font-weight:bold;
+                                        padding:3px 2px;
+                                        line-height:1.05;
+                                        text-align:right;
+                                        vertical-align:middle;
+                                        word-wrap:break-word;
+                                        overflow:hidden;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['total_debit']
                                     )"/>
 
-                                </th>
+                                </td>
 
 
-                                <th style="
-                                    padding:4px 2px !important;
-                                    font-size:7.2pt !important;
-                                    text-align:right;
-                                    vertical-align:middle;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                ">
+                                <!-- TOTAL CREDIT -->
+
+                                <td
+                                    style="
+                                        font-size:6pt;
+                                        font-weight:bold;
+                                        padding:3px 2px;
+                                        line-height:1.05;
+                                        text-align:right;
+                                        vertical-align:middle;
+                                        word-wrap:break-word;
+                                        overflow:hidden;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['total_credit']
                                     )"/>
 
-                                </th>
+                                </td>
 
 
-                                <th style="
-                                    padding:4px 2px !important;
-                                    font-size:7.2pt !important;
-                                    text-align:right;
-                                    vertical-align:middle;
-                                    word-wrap:break-word;
-                                    overflow:hidden;
-                                ">
+                                <!-- TOTAL BALANCE -->
+
+                                <td
+                                    style="
+                                        font-size:5.8pt;
+                                        font-weight:bold;
+                                        padding:3px 2px;
+                                        line-height:1.05;
+                                        text-align:right;
+                                        vertical-align:middle;
+                                        word-wrap:break-word;
+                                        overflow:hidden;
+                                        white-space:normal;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['closing_balance']
                                     )"/>
 
-                                </th>
+                                </td>
 
                             </tr>
 
-                        </table>
+                        </tbody>
 
-                    </div>
+                    </table>
+
 
 
                     <!-- =====================================================
