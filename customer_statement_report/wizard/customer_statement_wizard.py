@@ -18,6 +18,9 @@ class CustomerStatementReport(models.AbstractModel):
         }
 
 
+
+
+
 class CustomerStatementReport(models.AbstractModel):
 
     _name = 'report.customer_statement_report.from_lines'
@@ -27,26 +30,70 @@ class CustomerStatementReport(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
 
-        # aml = self.env['account.move.line'].browse(docids)
-        partner_ids = data.get('partner_ids')
-        date_from = data.get('date_from')
-        date_to = data.get('date_to')
+        # =====================================================
+        # Selected journal items from Accounting > Journal Items
+        # =====================================================
+
+        selected_lines = self.env['account.move.line'].browse(docids).filtered(
+            lambda l:
+                l.partner_id
+                and l.parent_state == 'posted'
+                and l.account_id.account_type in (
+                    'asset_receivable',
+                    'liability_payable'
+                )
+        )
+
+
+        if not selected_lines:
+
+            return {
+                'doc_ids': docids,
+                'doc_model': 'account.move.line',
+                'docs': selected_lines,
+                'statements': [],
+                'date_from': False,
+                'date_to': False,
+            }
+
+
+        # =====================================================
+        # Partners selected
+        # =====================================================
+
+        partners = selected_lines.mapped('partner_id')
+
+
+        # =====================================================
+        # Selected period
+        # =====================================================
+
+        date_from = min(selected_lines.mapped('date'))
+        date_to = max(selected_lines.mapped('date'))
+
+
+
+        # =====================================================
+        # Load all customer receivable/payable lines
+        # =====================================================
 
         aml = self.env['account.move.line'].search([
-            ('partner_id','in',partner_ids),
-            ('parent_state','=','posted'),
-            ('account_id.account_type','in',(
+
+            ('partner_id', 'in', partners.ids),
+
+            ('parent_state', '=', 'posted'),
+
+            ('account_id.account_type', 'in', (
                 'asset_receivable',
                 'liability_payable'
             )),
-            ('date','>=',date_from),
-            ('date','<=',date_to),
+
+            ('date', '>=', date_from),
+
+            ('date', '<=', date_to),
+
         ], order='date,id')
 
-        partners = aml.mapped('partner_id')
-
-        date_from = min(aml.mapped('date')) if aml else False
-        date_to = max(aml.mapped('date')) if aml else False
 
 
         statements = []
@@ -54,30 +101,38 @@ class CustomerStatementReport(models.AbstractModel):
 
         for partner in partners:
 
+
+            # =====================================================
+            # Customer Account
+            # =====================================================
+
             account = (
                 partner.property_account_receivable_id
                 or partner.property_account_payable_id
             )
 
 
-            moves = self.env['account.move.line'].search([
-                ('partner_id','=',partner.id),
-                ('account_id','=',account.id),
-                ('parent_state','=','posted'),
-                ('date','>=',date_from),
-                ('date','<=',date_to),
-            ], order='date,id')
+            moves = aml.filtered(
+                lambda l:
+                    l.partner_id == partner
+                    and l.account_id == account
+            )
 
 
-            # ==========================
+            # =====================================================
             # Opening Balance
-            # ==========================
+            # =====================================================
 
             opening_lines = self.env['account.move.line'].search([
-                ('partner_id','=',partner.id),
-                ('account_id','=',account.id),
-                ('parent_state','=','posted'),
-                ('date','<',date_from),
+
+                ('partner_id', '=', partner.id),
+
+                ('account_id', '=', account.id),
+
+                ('parent_state', '=', 'posted'),
+
+                ('date', '<', date_from),
+
             ])
 
 
@@ -91,26 +146,35 @@ class CustomerStatementReport(models.AbstractModel):
             balance = opening_balance
 
 
+
             result_lines = []
 
-            total_qty = 0
-            total_debit = 0
-            total_credit = 0
+            total_qty = 0.0
+            total_debit = 0.0
+            total_credit = 0.0
 
+
+
+            # =====================================================
+            # Transactions
+            # =====================================================
 
             for line in moves:
+
 
                 move = line.move_id
 
 
-                # ==========================
+
+                # =================================================
                 # Customer Invoice
-                # ==========================
+                # =================================================
 
                 if move.move_type in (
                     'out_invoice',
                     'out_refund'
                 ):
+
 
                     invoice_lines = move.invoice_line_ids.filtered(
                         lambda x:
@@ -125,15 +189,15 @@ class CustomerStatementReport(models.AbstractModel):
                         amount = il.price_subtotal
 
 
+
                         if move.move_type == 'out_invoice':
 
                             debit = amount
-                            credit = 0
-
+                            credit = 0.0
 
                         else:
 
-                            debit = 0
+                            debit = 0.0
                             credit = amount
 
 
@@ -142,16 +206,18 @@ class CustomerStatementReport(models.AbstractModel):
 
 
                         total_qty += il.quantity
+
                         total_debit += debit
+
                         total_credit += credit
+
 
 
                         result_lines.append({
 
                             'date': line.date,
 
-                            'transaction':
-                                move.name,
+                            'transaction': move.name,
 
                             'product':
                                 il.product_id.display_name,
@@ -170,25 +236,32 @@ class CustomerStatementReport(models.AbstractModel):
 
                             'balance':
                                 balance,
+
                         })
 
 
-                # ==========================
+
+                # =================================================
                 # Payment / Journal Entry
-                # ==========================
+                # =================================================
 
                 else:
 
 
                     debit = line.debit
+
                     credit = line.credit
+
 
 
                     balance += debit - credit
 
 
+
                     total_debit += debit
+
                     total_credit += credit
+
 
 
                     result_lines.append({
@@ -216,7 +289,9 @@ class CustomerStatementReport(models.AbstractModel):
 
                         'balance':
                             balance,
+
                     })
+
 
 
             statements.append({
@@ -241,7 +316,9 @@ class CustomerStatementReport(models.AbstractModel):
 
                 'total_credit':
                     total_credit,
+
             })
+
 
 
         return {
@@ -263,6 +340,7 @@ class CustomerStatementReport(models.AbstractModel):
 
             'date_to':
                 date_to,
+
         }
 
 
