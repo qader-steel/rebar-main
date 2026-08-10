@@ -295,99 +295,81 @@
 
 
 
-
 <template id="from_lines">
 
     <t t-call="web.html_container">
-
-       
-<style>
-
-    /* TEST 1: الجدول بالكامل */
-    #statement-wrapper table.statement-table {
-        background-color: yellow !important;
-        border: 5px solid red !important;
-    }
-
-    /* TEST 2: رؤوس الأعمدة */
-    #statement-wrapper table.statement-table thead {
-        background-color: blue !important;
-    }
-
-    #statement-wrapper table.statement-table thead th {
-        color: white !important;
-        background-color: blue !important;
-        border: 3px solid red !important;
-    }
-
-    /* TEST 3: كل الخلايا */
-    #statement-wrapper table.statement-table tbody td {
-        background-color: yellow !important;
-        border: 2px solid green !important;
-    }
-
-    /* TEST 4: Balance تحديداً */
-    #statement-wrapper table.statement-table th:nth-child(8),
-    #statement-wrapper table.statement-table td:nth-child(8) {
-        background-color: red !important;
-        color: white !important;
-        border: 5px solid black !important;
-    }
-
-</style>
-
-
-
-        <!-- =========================================================
-             STATEMENTS
-             ========================================================= -->
 
         <t t-foreach="statements" t-as="stmt_data">
 
             <t t-call="web.external_layout">
 
-                <!-- IMPORTANT:
-                     ID is directly on the page wrapper
-                -->
+                <div class="page"
+                     style="
+                        width: 100%;
+                        font-size: 6pt;
+                        line-height: 1.0;
+                        box-sizing: border-box;
+                     ">
 
-                <div id="statement-wrapper" class="page">
-
-
-                    <!-- =================================================
+                    <!-- =====================================================
                          TITLE
-                         ================================================= -->
+                         ===================================================== -->
 
-                    <h2 class="text-center statement-title">
+                    <h2 class="text-center"
+                        style="
+                            font-size: 11pt !important;
+                            line-height: 1.0;
+                            margin: 0 0 4px 0;
+                            padding: 0;
+                        ">
 
                         Customer Statement Report
 
                     </h2>
 
 
-                    <!-- =================================================
-                         INFORMATION
-                         ================================================= -->
+                    <!-- =====================================================
+                         STATEMENT INFORMATION
+                         ===================================================== -->
 
-                    <div class="row statement-info">
+                    <div class="row"
+                         style="
+                            width: 100%;
+                            margin: 0 0 4px 0;
+                            padding: 0;
+                            font-size: 5.5pt !important;
+                            line-height: 1.0;
+                        ">
 
-                        <div class="col-3">
+                        <div class="col-3"
+                             style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5.5pt !important;
+                            ">
 
-                            <strong>
+                            <strong style="font-size: 5.5pt !important;">
                                 Partner Name:
                             </strong>
 
-                            <span t-esc="stmt_data['partner'].name"/>
+                            <span style="font-size: 5.5pt !important;"
+                                  t-esc="stmt_data['partner'].name"/>
 
                         </div>
 
 
-                        <div class="col-3">
+                        <div class="col-3"
+                             style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5.5pt !important;
+                            ">
 
-                            <strong>
+                            <strong style="font-size: 5.5pt !important;">
                                 Initial Balance:
                             </strong>
 
-                            <span>
+                            <span style="font-size: 5.5pt !important;">
 
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['opening_balance']
@@ -395,75 +377,228 @@
 
                             </span>
 
-                            IQD
+                            <span style="font-size: 5.5pt !important;">
+                                IQD
+                            </span>
 
                         </div>
 
 
-                        <div class="col-3">
+                        <div class="col-3"
+                             style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5.5pt !important;
+                            ">
 
-                            <strong>
+                            <strong style="font-size: 5.5pt !important;">
                                 From:
                             </strong>
 
-                            <span t-esc="date_from"/>
+                            <span style="font-size: 5.5pt !important;"
+                                  t-esc="date_from"/>
 
                         </div>
 
 
-                        <div class="col-3">
+                        <div class="col-3"
+                             style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5.5pt !important;
+                            ">
 
-                            <strong>
+                            <strong style="font-size: 5.5pt !important;">
                                 To:
                             </strong>
 
-                            <span t-esc="date_to"/>
+                            <span style="font-size: 5.5pt !important;"
+                                  t-esc="date_to"/>
 
                         </div>
 
                     </div>
 
 
-                    <!-- =================================================
-                         MAIN TABLE
-                         ================================================= -->
+                    <!-- =====================================================
+                         MAIN STATEMENT TABLE
+                         
+                         IMPORTANT:
+                         All widths together = 100%
+                         ===================================================== -->
 
-                    <table class="table table-sm table-bordered statement-table">
+                    <table
+                        class="table table-sm table-bordered"
+                        style="
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            table-layout: fixed !important;
+                            border-collapse: collapse !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            font-size: 5pt !important;
+                            line-height: 0.95 !important;
+                        "
+                    >
 
+                        <!-- =================================================
+                             FIXED COLUMN WIDTHS
+                             Total = 100%
+                             ================================================= -->
+
+                        <colgroup>
+
+                            <col style="width: 8%;"/>
+
+                            <col style="width: 13%;"/>
+
+                            <col style="width: 23%;"/>
+
+                            <col style="width: 8%;"/>
+
+                            <col style="width: 10%;"/>
+
+                            <col style="width: 12%;"/>
+
+                            <col style="width: 12%;"/>
+
+                            <col style="width: 14%;"/>
+
+                        </colgroup>
+
+
+                        <!-- =================================================
+                             HEADER
+                             ================================================= -->
 
                         <thead>
 
                             <tr>
 
-                                <th>
+                                <th
+                                    style="
+                                        width: 8%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: center;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Date
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 13%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: center;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Transaction
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 23%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: center;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Product / Description
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 8%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: right;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Quantity
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 10%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: right;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Unit Price
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 12%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: right;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Debit
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 12%;
+                                        padding: 1px !important;
+                                        font-size: 5pt !important;
+                                        line-height: 0.95 !important;
+                                        text-align: right;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Credit
                                 </th>
 
-                                <th>
+
+                                <th
+                                    style="
+                                        width: 14%;
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                        line-height: 0.9 !important;
+                                        text-align: right;
+                                        white-space: normal;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Balance
                                 </th>
 
@@ -472,47 +607,114 @@
                         </thead>
 
 
+                        <!-- =================================================
+                             BODY
+                             ================================================= -->
+
                         <tbody>
 
                             <t t-foreach="stmt_data['lines']" t-as="line">
 
                                 <tr>
 
-
                                     <!-- DATE -->
 
-                                    <td>
+                                    <td
+                                        style="
+                                            width: 8%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
-                                        <span t-esc="line['date']"/>
+                                        <span
+                                            style="font-size: 4.5pt !important;"
+                                            t-esc="line['date']"
+                                        />
 
                                     </td>
 
 
                                     <!-- TRANSACTION -->
 
-                                    <td>
+                                    <td
+                                        style="
+                                            width: 13%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
-                                        <span t-esc="line['transaction']"/>
+                                        <span
+                                            style="
+                                                font-size: 4.5pt !important;
+                                                word-wrap: break-word;
+                                            "
+                                            t-esc="line['transaction']"
+                                        />
 
                                     </td>
 
 
-                                    <!-- PRODUCT -->
+                                    <!-- PRODUCT / DESCRIPTION -->
 
-                                    <td>
+                                    <td
+                                        style="
+                                            width: 23%;
+                                            padding: 1px !important;
+                                            font-size: 5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            white-space: pre-line;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
-                                        <span t-esc="line['product']"/>
+                                        <span
+                                            style="
+                                                font-size: 5pt !important;
+                                                line-height: 0.9 !important;
+                                                white-space: pre-line;
+                                                word-wrap: break-word;
+                                            "
+                                            t-esc="line['product']"
+                                        />
 
                                     </td>
 
 
                                     <!-- QUANTITY -->
 
-                                    <td class="text-end">
+                                    <td
+                                        style="
+                                            width: 8%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            text-align: right;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
                                         <t t-if="line['quantity'] is not None">
 
-                                            <span>
+                                            <span
+                                                style="font-size: 4.5pt !important;"
+                                            >
 
                                                 <t t-esc="'{:,.3f}'.format(
                                                     line['quantity']
@@ -527,11 +729,25 @@
 
                                     <!-- UNIT PRICE -->
 
-                                    <td class="text-end">
+                                    <td
+                                        style="
+                                            width: 10%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            text-align: right;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
                                         <t t-if="line['unit_price'] is not None">
 
-                                            <span>
+                                            <span
+                                                style="font-size: 4.5pt !important;"
+                                            >
 
                                                 <t t-esc="'{:,.2f}'.format(
                                                     line['unit_price']
@@ -546,9 +762,23 @@
 
                                     <!-- DEBIT -->
 
-                                    <td class="text-end">
+                                    <td
+                                        style="
+                                            width: 12%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            text-align: right;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
-                                        <span>
+                                        <span
+                                            style="font-size: 4.5pt !important;"
+                                        >
 
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['debit']
@@ -561,9 +791,23 @@
 
                                     <!-- CREDIT -->
 
-                                    <td class="text-end">
+                                    <td
+                                        style="
+                                            width: 12%;
+                                            padding: 1px !important;
+                                            font-size: 4.5pt !important;
+                                            line-height: 0.9 !important;
+                                            vertical-align: middle;
+                                            text-align: right;
+                                            white-space: normal;
+                                            word-wrap: break-word;
+                                            overflow: hidden;
+                                        "
+                                    >
 
-                                        <span>
+                                        <span
+                                            style="font-size: 4.5pt !important;"
+                                        >
 
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['credit']
@@ -576,9 +820,29 @@
 
                                     <!-- BALANCE -->
 
-                                    <td class="text-end">
+                                    <td
+                                        style="
+                                            width: 14% !important;
+                                            padding: 1px !important;
+                                            font-size: 4.2pt !important;
+                                            line-height: 0.85 !important;
+                                            vertical-align: middle;
+                                            text-align: right;
+                                            white-space: normal !important;
+                                            word-wrap: break-word !important;
+                                            overflow: hidden !important;
+                                        "
+                                    >
 
-                                        <strong>
+                                        <strong
+                                            style="
+                                                font-size: 4.2pt !important;
+                                                line-height: 0.85 !important;
+                                                font-weight: bold;
+                                                white-space: normal !important;
+                                                word-wrap: break-word !important;
+                                            "
+                                        >
 
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['balance']
@@ -587,7 +851,6 @@
                                         </strong>
 
                                     </td>
-
 
                                 </tr>
 
@@ -598,24 +861,67 @@
                     </table>
 
 
-                    <!-- =================================================
+                    <!-- =====================================================
                          TOTAL
-                         ================================================= -->
+                         ===================================================== -->
 
-                    <div class="statement-total">
+                    <div
+                        style="
+                            width: 100%;
+                            margin-top: 2px;
+                            margin-bottom: 4px;
+                            page-break-inside: avoid;
+                        "
+                    >
 
-                        <table class="table table-sm table-bordered">
+                        <table
+                            class="table table-sm table-bordered"
+                            style="
+                                width: 100% !important;
+                                table-layout: fixed !important;
+                                border-collapse: collapse !important;
+                                font-size: 4.5pt !important;
+                                line-height: 0.9 !important;
+                                margin: 0 !important;
+                            "
+                        >
+
+                            <colgroup>
+
+                                <col style="width: 31%;"/>
+                                <col style="width: 8%;"/>
+                                <col style="width: 10%;"/>
+                                <col style="width: 12%;"/>
+                                <col style="width: 12%;"/>
+                                <col style="width: 14%;"/>
+
+                            </colgroup>
 
                             <tr>
 
-                                <th colspan="3">
-
+                                <th
+                                    colspan="3"
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                        line-height: 0.9 !important;
+                                        text-align: left;
+                                        overflow: hidden;
+                                    "
+                                >
                                     Total
-
                                 </th>
 
 
-                                <th class="text-end">
+                                <th
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                        line-height: 0.9 !important;
+                                        text-align: right;
+                                        overflow: hidden;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.3f}'.format(
                                         stmt_data['total_qty']
@@ -624,11 +930,22 @@
                                 </th>
 
 
-                                <th>
+                                <th
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                    "
+                                >
                                 </th>
 
 
-                                <th class="text-end">
+                                <th
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                        text-align: right;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['total_debit']
@@ -637,7 +954,13 @@
                                 </th>
 
 
-                                <th class="text-end">
+                                <th
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.5pt !important;
+                                        text-align: right;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['total_credit']
@@ -646,7 +969,15 @@
                                 </th>
 
 
-                                <th class="text-end">
+                                <th
+                                    style="
+                                        padding: 1px !important;
+                                        font-size: 4.2pt !important;
+                                        text-align: right;
+                                        word-wrap: break-word;
+                                        overflow: hidden;
+                                    "
+                                >
 
                                     <t t-esc="'{:,.2f}'.format(
                                         stmt_data['closing_balance']
@@ -661,19 +992,36 @@
                     </div>
 
 
-                    <!-- =================================================
+                    <!-- =====================================================
                          FINAL BALANCE
-                         ================================================= -->
+                         ===================================================== -->
 
-                    <div class="row statement-balance">
+                    <div
+                        class="row"
+                        style="
+                            width: 100%;
+                            margin: 3px 0 0 0;
+                            padding: 0;
+                            font-size: 5pt !important;
+                            line-height: 0.95 !important;
+                            page-break-inside: avoid;
+                        "
+                    >
 
-                        <div class="col-6">
+                        <div
+                            class="col-6"
+                            style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5pt !important;
+                            "
+                        >
 
-                            <strong>
+                            <strong style="font-size: 5pt !important;">
                                 Current Balance:
                             </strong>
 
-                            <span>
+                            <span style="font-size: 5pt !important;">
 
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['closing_balance']
@@ -681,18 +1029,27 @@
 
                             </span>
 
-                            IQD
+                            <span style="font-size: 5pt !important;">
+                                IQD
+                            </span>
 
                         </div>
 
 
-                        <div class="col-6">
+                        <div
+                            class="col-6"
+                            style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5pt !important;
+                            "
+                        >
 
-                            <strong>
+                            <strong style="font-size: 5pt !important;">
                                 Final Account Balance:
                             </strong>
 
-                            <span>
+                            <span style="font-size: 5pt !important;">
 
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['closing_balance']
@@ -700,22 +1057,41 @@
 
                             </span>
 
-                            IQD
+                            <span style="font-size: 5pt !important;">
+                                IQD
+                            </span>
 
                         </div>
 
                     </div>
 
 
-                    <!-- =================================================
+                    <!-- =====================================================
                          SIGNATURE
-                         ================================================= -->
+                         ===================================================== -->
 
-                    <div class="row statement-signature">
+                    <div
+                        class="row"
+                        style="
+                            width: 100%;
+                            margin-top: 6px;
+                            padding: 0;
+                            font-size: 5pt !important;
+                            line-height: 0.95 !important;
+                            page-break-inside: avoid;
+                        "
+                    >
 
-                        <div class="col-6">
+                        <div
+                            class="col-6"
+                            style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5pt !important;
+                            "
+                        >
 
-                            <strong>
+                            <strong style="font-size: 5pt !important;">
                                 Accountant Name:
                             </strong>
 
@@ -724,9 +1100,16 @@
                         </div>
 
 
-                        <div class="col-6">
+                        <div
+                            class="col-6"
+                            style="
+                                padding-left: 1px;
+                                padding-right: 1px;
+                                font-size: 5pt !important;
+                            "
+                        >
 
-                            <strong>
+                            <strong style="font-size: 5pt !important;">
                                 Accountant Signature:
                             </strong>
 
@@ -757,8 +1140,6 @@
     </t>
 
 </template>
-
-
 
 
 
