@@ -18,6 +18,68 @@ class CustomerStatementReport(models.AbstractModel):
         }
 
 
+
+class CustomerStatementReportFromLines(models.AbstractModel):
+    _name = 'report.cust_statement.from_lines'
+    _description = 'Customer Statement Report From Journal Items'
+
+    def _get_report_values(self, docids, data=None):
+        lines = self.env['account.move.line'].browse(docids)
+        # فقط سطور العملاء (Receivable) المرحّلة
+        lines = lines.filtered(
+            lambda l: l.partner_id and l.parent_state == 'posted'
+            and l.account_id.account_type in ('asset_receivable', 'liability_payable')
+        )
+
+        partners = lines.mapped('partner_id')
+        date_from = min(lines.mapped('date')) if lines else False
+        date_to = max(lines.mapped('date')) if lines else False
+
+        statements = []
+        for partner in partners:
+            partner_lines = lines.filtered(lambda l: l.partner_id == partner).sorted('date')
+
+            opening_lines = self.env['account.move.line'].search([
+                ('partner_id', '=', partner.id),
+                ('parent_state', '=', 'posted'),
+                ('account_id.account_type', 'in', ('asset_receivable', 'liability_payable')),
+                ('date', '<', date_from),
+            ])
+            opening_balance = sum(opening_lines.mapped('balance'))
+            balance = opening_balance
+
+            result_lines = []
+            for l in partner_lines:
+                balance += l.balance
+                result_lines.append({
+                    'date': l.date,
+                    'move_name': l.move_id.name,
+                    'account': l.account_id.display_name,
+                    'label': l.name or '',
+                    'debit': l.debit,
+                    'credit': l.credit,
+                    'balance': balance,
+                })
+
+            statements.append({
+                'partner': partner,
+                'opening_balance': opening_balance,
+                'lines': result_lines,
+                'closing_balance': balance,
+            })
+
+        return {
+            'doc_ids': docids,
+            'doc_model': 'account.move.line',
+            'docs': lines,
+            'statements': statements,
+            'date_from': date_from,
+            'date_to': date_to,
+        }
+
+
+    
+
 class CustomerStatementWizard(models.TransientModel):
     _name = 'customer.statement.wizard'
     _description = 'Customer Statement Wizard'

@@ -7,6 +7,7 @@
     'data': [
         'security/ir.model.access.csv',
         'wizard/customer_statement_wizard_views.xml',
+        'view/account_move_line_view.xml',
         'report/customer_statement_report.xml',
         'report/customer_statement_templates.xml',
     ],
