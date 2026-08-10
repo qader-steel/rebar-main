@@ -1771,7 +1771,6 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-
 import logging
 
 from odoo import api, models
@@ -1782,15 +1781,17 @@ _logger = logging.getLogger(__name__)
 
 class CustomerStatementReport(models.AbstractModel):
     _name = 'report.customer_statement_report.from_lines'
-    _description = 'Customer Statement Report'
+    _description = 'Customer / Vendor Statement Report'
 
     # ==========================================================
-    # HELPERS
+    # HELPERS - COMMON
     # ==========================================================
 
     def _is_payment_move(self, move):
         """
         Detect real payment / cash / bank moves.
+        (POS payments, bank statement lines, manual payments,
+        or any move whose journal is of type cash/bank).
         """
         if 'payment_id' in move._fields and move.payment_id:
             return True
@@ -1823,19 +1824,81 @@ class CustomerStatementReport(models.AbstractModel):
 
         return line.display_type in (False, 'product')
 
-    def _should_include_line(self, line):
+    # ==========================================================
+    # FILTER LOGIC - SEPARATED PER PARTY TYPE (CUSTOMER / VENDOR)
+    # ==========================================================
+    #
+    # Rule (for BOTH customer and vendor, symmetrical):
+    #   - Invoice-type move (invoice/bill/refund) -> ONLY product
+    #     lines are included (never the receivable/payable line,
+    #     otherwise the amount is duplicated with the payment
+    #     that settles it).
+    #   - Payment-type move (payment/cash/bank/statement line)
+    #     -> the WHOLE move's relevant lines are included as-is,
+    #     no account_type filtering. This is what was broken
+    #     before: filtering payment lines by account_type caused
+    #     invoice receivable/payable lines to leak in through
+    #     payment moves and duplicate the invoice line.
+    #   - Other (manual journal entries / misc) -> only the
+    #     receivable line (customer) or payable line (vendor).
+    # ==========================================================
+
+    def _should_include_customer_line(self, line):
         move = line.move_id
 
         if self._is_invoice_move(move):
             return self._is_product_line(line)
 
         if self._is_payment_move(move):
-            return line.account_id.account_type in (
-                'asset_receivable',
-                'liability_payable',
-            )
+            return True
 
-        return self._is_product_line(line)
+        # manual / other journal entries: keep only the customer's
+        # receivable line for this account
+        return line.account_id.account_type == 'asset_receivable'
+
+    def _should_include_vendor_line(self, line):
+        move = line.move_id
+
+        if self._is_invoice_move(move):
+            return self._is_product_line(line)
+
+        if self._is_payment_move(move):
+            return True
+
+        # manual / other journal entries: keep only the vendor's
+        # payable line for this account
+        return line.account_id.account_type == 'liability_payable'
+
+    def _should_include_line(self, line, party_type):
+        """
+        Dispatch to the correct filter based on party_type.
+        party_type: 'customer' or 'vendor'
+        """
+        if party_type == 'vendor':
+            return self._should_include_vendor_line(line)
+
+        return self._should_include_customer_line(line)
+
+    def _get_party_type(self, move):
+        """
+        Decide whether a move belongs to the customer flow or the
+        vendor flow, so opening balance / filtering use the right
+        account_type.
+        """
+        if move.move_type in ('in_invoice', 'in_refund'):
+            return 'vendor'
+
+        if move.move_type in ('out_invoice', 'out_refund'):
+            return 'customer'
+
+        # payments / manual entries: infer from the account touched
+        payable = move.line_ids.filtered(
+            lambda l: l.account_id.account_type == 'liability_payable'
+        )
+        if payable:
+            return 'vendor'
+
+        return 'customer'
 
     # ==========================================================
     # MAIN REPORT
@@ -1845,7 +1908,7 @@ class CustomerStatementReport(models.AbstractModel):
     def _get_report_values(self, docids, data=None):
 
         _logger.warning(
-            "CUSTOMER STATEMENT START | docids=%s",
+            "STATEMENT START | docids=%s",
             docids,
         )
 
@@ -1924,7 +1987,7 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
         # ======================================================
-        # 4. FILTER
+        # 4. FILTER (per line, using the party_type of its OWN move)
         # ======================================================
 
         included_lines = self.env['account.move.line']
@@ -1939,10 +2002,16 @@ class CustomerStatementReport(models.AbstractModel):
             'other_excluded': 0,
         }
 
+        # cache party_type per line so we don't recompute it later
+        line_party_type = {}
+
         for line in selected_lines:
 
             move = line.move_id
-            include = self._should_include_line(line)
+            party_type = self._get_party_type(move)
+            line_party_type[line.id] = party_type
+
+            include = self._should_include_line(line, party_type)
 
             if self._is_invoice_move(move):
                 kind = 'INVOICE'
@@ -2026,41 +2095,58 @@ class CustomerStatementReport(models.AbstractModel):
                 len(partner_selected),
             )
 
+            # Determine the dominant party_type for this partner's
+            # selection (used for opening balance account_type).
+            # If the partner has both vendor and customer lines in
+            # the selection, we split the opening balance per type
+            # too, but typically a partner_selected batch is
+            # homogeneous (all invoices, or all bills, or mixed
+            # payments belonging to one side).
+            partner_party_types = {
+                line_party_type.get(l.id, 'customer')
+                for l in partner_selected
+            }
+
             # ==================================================
-            # 7. OPENING BALANCE
+            # 7. OPENING BALANCE (split by customer/vendor account)
             # ==================================================
 
-            opening_domain = [
+            opening_domain_base = [
                 ('partner_id', '=', partner.id),
                 ('parent_state', '=', 'posted'),
                 ('date', '<', date_from),
             ]
 
             opening_lines = self.env['account.move.line'].search(
-                opening_domain
+                opening_domain_base
             )
 
-            opening_included = opening_lines.filtered(
-                self._should_include_line
-            )
+            opening_debit = 0.0
+            opening_credit = 0.0
 
-            opening_debit = sum(
-                opening_included.mapped('debit')
-            )
+            for opening_line in opening_lines:
+                opening_party_type = self._get_party_type(
+                    opening_line.move_id
+                )
 
-            opening_credit = sum(
-                opening_included.mapped('credit')
-            )
+                if opening_party_type not in partner_party_types:
+                    continue
 
-            opening_balance = (
-                opening_debit - opening_credit
-            )
+                if not self._should_include_line(
+                    opening_line, opening_party_type
+                ):
+                    continue
+
+                opening_debit += opening_line.debit or 0.0
+                opening_credit += opening_line.credit or 0.0
+
+            opening_balance = opening_debit - opening_credit
 
             _logger.warning(
-                "OPENING | partner=%s | lines=%s | "
+                "OPENING | partner=%s | types=%s | "
                 "debit=%s | credit=%s | balance=%s",
                 partner.id,
-                len(opening_included),
+                partner_party_types,
                 opening_debit,
                 opening_credit,
                 opening_balance,
@@ -2165,8 +2251,6 @@ class CustomerStatementReport(models.AbstractModel):
                 # Only ONE balance update.
                 # ------------------------------------------------
 
-                old_balance = balance
-
                 delta = debit - credit
 
                 balance += delta
@@ -2222,6 +2306,10 @@ class CustomerStatementReport(models.AbstractModel):
                     'move_type': move.move_type,
 
                     'move_kind': move_kind,
+
+                    'party_type': line_party_type.get(
+                        line.id, 'customer'
+                    ),
 
                     'journal_name': (
                         move.journal_id.name
@@ -2297,6 +2385,8 @@ class CustomerStatementReport(models.AbstractModel):
             statements.append({
                 'partner': partner,
 
+                'party_types': list(partner_party_types),
+
                 'opening_balance': opening_balance,
 
                 'lines': result_lines,
@@ -2357,7 +2447,7 @@ class CustomerStatementReport(models.AbstractModel):
         # ======================================================
 
         _logger.warning(
-            "CUSTOMER STATEMENT END | "
+            "STATEMENT END | "
             "selected=%s | included=%s | excluded=%s",
             total_original,
             total_included,
@@ -2376,11 +2466,6 @@ class CustomerStatementReport(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
-
-
-
-
-
 
 
 
