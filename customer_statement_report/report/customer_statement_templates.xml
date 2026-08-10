@@ -299,384 +299,101 @@
     <t t-call="web.html_container">
 
         <style>
-
-            /* =========================================================
-               GLOBAL / PAGE
-               ========================================================= */
-
             * {
                 box-sizing: border-box;
             }
 
             .page {
-                font-size: 6px;
-                line-height: 1.05;
-                width: 100%;
-                max-width: 100%;
-                overflow: hidden;
+                font-size: 7px;
+                line-height: 1.1;
             }
 
             .statement-title {
                 font-size: 12px;
                 margin: 0 0 5px 0;
-                line-height: 1.1;
             }
 
             .statement-info {
-                font-size: 6px;
-                line-height: 1.05;
+                font-size: 7px;
                 margin-bottom: 5px;
-                width: 100%;
             }
 
             .statement-info .col-3 {
-                padding-left: 2px !important;
-                padding-right: 2px !important;
+                padding-left: 2px;
+                padding-right: 2px;
             }
-
 
             /* =========================================================
-               MAIN STATEMENT TABLE
-               ========================================================= */
+            MAIN TABLE - width control lives ONLY in colgroup.
+            No conflicting selectors (no td:last-child, no nth-child)
+            so the renderer has a single source of truth for widths.
+            ========================================================= */
 
-            .statement-table {
-                width: 100% !important;
-                max-width: 100% !important;
-
-                table-layout: fixed !important;
-
-                border-collapse: collapse !important;
-                border-spacing: 0 !important;
-
-                font-size: 5.5px !important;
-                line-height: 1.0 !important;
-
-                margin: 0 0 5px 0 !important;
-
-                overflow: hidden;
+            table.statement-table {
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
+                font-size: 6px;
+                line-height: 1.1;
+                margin: 0 0 5px 0;
             }
-
-
-            /* ---------------------------------------------------------
-               Column widths
-               
-               TOTAL = 100%
-               
-               Date       7%
-               Transaction 12%
-               Description 24%
-               Quantity    8%
-               Price       10%
-               Debit       12%
-               Credit      12%
-               Balance     15%
-               
-               --------------------------------------------------------- */
-
-            .statement-table col.col-date {
-                width: 7% !important;
-            }
-
-            .statement-table col.col-trans {
-                width: 12% !important;
-            }
-
-            .statement-table col.col-desc {
-                width: 24% !important;
-            }
-
-            .statement-table col.col-qty {
-                width: 8% !important;
-            }
-
-            .statement-table col.col-price {
-                width: 10% !important;
-            }
-
-            .statement-table col.col-debit {
-                width: 12% !important;
-            }
-
-            .statement-table col.col-credit {
-                width: 12% !important;
-            }
-
-            .statement-table col.col-balance {
-                width: 15% !important;
-            }
-
-
-            /* =========================================================
-               TABLE CELLS
-               ========================================================= */
 
             .statement-table th,
             .statement-table td {
-
-                box-sizing: border-box !important;
-
-                padding: 1px 2px !important;
-
-                margin: 0 !important;
-
-                vertical-align: middle !important;
-
-                font-size: 5.5px !important;
-
-                line-height: 1.0 !important;
-
-                overflow: hidden !important;
-
-                word-wrap: break-word !important;
-                overflow-wrap: anywhere !important;
-
-                white-space: normal !important;
-
-                min-width: 0 !important;
-
-                max-width: 100% !important;
+                padding: 1px 2px;
+                vertical-align: middle;
+                font-size: 6px;
+                line-height: 1.1;
+                white-space: normal;
+                word-break: break-all;
+                overflow-wrap: break-word;
             }
-
-
-            /* Header */
 
             .statement-table thead th {
-
-                font-size: 5.5px !important;
-
-                font-weight: bold !important;
-
-                line-height: 1.0 !important;
-
-                white-space: normal !important;
-
-                word-break: break-word !important;
-
-                overflow-wrap: anywhere !important;
-
-                text-align: center !important;
+                font-weight: bold;
+                text-align: center;
             }
-
-
-            /* Body */
-
-            .statement-table tbody td {
-
-                font-size: 5.5px !important;
-
-                line-height: 1.0 !important;
-
-                word-break: break-word !important;
-
-                overflow-wrap: anywhere !important;
-
-                white-space: normal !important;
-            }
-
-
-            /* =========================================================
-               NUMERIC COLUMNS
-               ========================================================= */
 
             .statement-table td.text-end,
             .statement-table th.text-end {
-
-                text-align: right !important;
-
-                font-size: 5.2px !important;
-
-                line-height: 1.0 !important;
-
-                white-space: normal !important;
-
-                word-break: break-all !important;
-
-                overflow-wrap: anywhere !important;
-
-                padding-left: 1px !important;
-                padding-right: 1px !important;
+                text-align: right;
             }
-
-
-            /* =========================================================
-               BALANCE COLUMN
-               ========================================================= */
-
-            .statement-table td:last-child,
-            .statement-table th:last-child {
-
-                width: 15% !important;
-
-                font-size: 5.2px !important;
-
-                padding-left: 1px !important;
-                padding-right: 1px !important;
-
-                text-align: right !important;
-
-                white-space: normal !important;
-
-                word-break: break-all !important;
-
-                overflow-wrap: anywhere !important;
-
-                overflow: hidden !important;
-            }
-
-
-            /* =========================================================
-               PRODUCT / DESCRIPTION
-               ========================================================= */
-
-            .statement-table td:nth-child(3) {
-
-                font-size: 5.5px !important;
-
-                line-height: 1.0 !important;
-
-                word-break: break-word !important;
-
-                overflow-wrap: anywhere !important;
-
-                white-space: normal !important;
-            }
-
-
-            /* =========================================================
-               TRANSACTION COLUMN
-               ========================================================= */
-
-            .statement-table td:nth-child(2) {
-
-                font-size: 5.2px !important;
-
-                word-break: break-all !important;
-
-                overflow-wrap: anywhere !important;
-
-                white-space: normal !important;
-            }
-
-
-            /* =========================================================
-               FINAL TOTAL
-               ========================================================= */
 
             .statement-total {
-
-                width: 100% !important;
-                max-width: 100% !important;
-
-                font-size: 6px !important;
-
-                margin-top: 3px !important;
-                margin-bottom: 6px !important;
-
-                page-break-inside: avoid !important;
-
-                overflow: hidden !important;
+                width: 100%;
+                font-size: 6px;
+                margin-top: 3px;
+                margin-bottom: 6px;
+                page-break-inside: avoid;
             }
 
             .statement-total table {
-
-                width: 100% !important;
-                max-width: 100% !important;
-
-                table-layout: fixed !important;
-
-                border-collapse: collapse !important;
-                border-spacing: 0 !important;
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
             }
 
             .statement-total th,
             .statement-total td {
-
-                box-sizing: border-box !important;
-
-                padding: 2px 1px !important;
-
-                font-size: 5.5px !important;
-
-                line-height: 1.0 !important;
-
-                font-weight: bold !important;
-
-                word-break: break-all !important;
-
-                overflow-wrap: anywhere !important;
-
-                white-space: normal !important;
-
-                overflow: hidden !important;
+                padding: 2px 1px;
+                font-size: 6px;
+                font-weight: bold;
+                word-break: break-all;
+                white-space: normal;
             }
 
-
-            /* =========================================================
-               FINAL BALANCE
-               ========================================================= */
-
-            .statement-balance {
-
-                width: 100% !important;
-
-                font-size: 6px !important;
-
-                line-height: 1.05 !important;
-
-                margin-top: 5px !important;
-
-                page-break-inside: avoid !important;
-            }
-
-            .statement-balance .col-6 {
-
-                padding-left: 2px !important;
-                padding-right: 2px !important;
-            }
-
-
-            /* =========================================================
-               SIGNATURE
-               ========================================================= */
-
+            .statement-balance,
             .statement-signature {
-
-                width: 100% !important;
-
-                font-size: 6px !important;
-
-                line-height: 1.05 !important;
-
-                margin-top: 8px !important;
-
-                page-break-inside: avoid !important;
+                font-size: 7px;
+                margin-top: 6px;
+                page-break-inside: avoid;
             }
 
+            .statement-balance .col-6,
             .statement-signature .col-6 {
-
-                padding-left: 2px !important;
-                padding-right: 2px !important;
+                padding-left: 2px;
+                padding-right: 2px;
             }
-
-
-            /* =========================================================
-               PREVENT BOOTSTRAP FROM EXPANDING TABLE
-               ========================================================= */
-
-            .statement-table.table {
-
-                width: 100% !important;
-                max-width: 100% !important;
-
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-
-            .statement-table.table-bordered {
-
-                border-collapse: collapse !important;
-            }
-
         </style>
 
 
