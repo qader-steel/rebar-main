@@ -20,7 +20,7 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 class CustomerStatementReportFromLines(models.AbstractModel):
-    _name = 'report.cust_statement.from_lines'
+    _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report From Journal Items'
 
     def _get_report_values(self, docids, data=None):
