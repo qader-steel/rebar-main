@@ -1819,403 +1819,362 @@ class CustomerStatementReport(models.AbstractModel):
         # ==========================================================
 
         def inspect_aml(line):
+            """
+            Build one report row from account.move.line.
+
+            IMPORTANT:
+            For vendor purchase documents, quantity/UOM/price must come from
+            account.move.line.purchase_line_id (purchase.order.line), NOT from
+            account.move.line.quantity / price_unit.
+
+            For customer documents, AML quantity/price are used.
+
+            This function also contains extensive diagnostics so we can identify
+            exactly where values are coming from.
+            """
+
+            # ------------------------------------------------------------------
+            # BASIC AML INFORMATION
+            # ------------------------------------------------------------------
 
             move = line.move_id
-            product = line.product_id
+            partner = line.partner_id
 
-            _logger.warning("")
-            _logger.warning("-" * 120)
-            _logger.warning(
-                "DEEP AML INSPECTION | AML_ID=%s",
-                line.id,
-            )
-            _logger.warning("-" * 120)
+            partner_kind = "customer"
+            if partner:
+                if getattr(partner, "supplier_rank", 0) > getattr(partner, "customer_rank", 0):
+                    partner_kind = "vendor"
+                elif getattr(partner, "customer_rank", 0) > getattr(partner, "supplier_rank", 0):
+                    partner_kind = "customer"
+                elif getattr(partner, "supplier_rank", 0):
+                    partner_kind = "vendor"
 
-            # ------------------------------------------------------
-            # BASIC AML
-            # ------------------------------------------------------
+            purchase_line = line.purchase_line_id if "purchase_line_id" in line._fields else False
+
+            # ------------------------------------------------------------------
+            # FIELD EXISTENCE / SAFE ACCESS
+            # ------------------------------------------------------------------
+
+            def safe_value(record, field_name, default=None):
+                if not record:
+                    return default
+
+                if field_name not in record._fields:
+                    return default
+
+                try:
+                    return record[field_name]
+                except Exception:
+                    return default
+
+            # ------------------------------------------------------------------
+            # RAW AML VALUES
+            # ------------------------------------------------------------------
+
+            aml_product = safe_value(line, "product_id")
+            aml_quantity = safe_value(line, "quantity", 0.0) or 0.0
+            aml_price_unit = safe_value(line, "price_unit", 0.0) or 0.0
+            aml_debit = safe_value(line, "debit", 0.0) or 0.0
+            aml_credit = safe_value(line, "credit", 0.0) or 0.0
+
+            # ------------------------------------------------------------------
+            # PURCHASE ORDER LINE VALUES
+            # ------------------------------------------------------------------
+
+            purchase_product = False
+            purchase_qty = 0.0
+            purchase_uom = False
+            purchase_price_unit = 0.0
+            purchase_order = False
+
+            if purchase_line:
+                purchase_product = safe_value(
+                    purchase_line,
+                    "product_id"
+                )
+
+                purchase_qty = safe_value(
+                    purchase_line,
+                    "product_qty",
+                    0.0
+                ) or 0.0
+
+                purchase_uom = safe_value(
+                    purchase_line,
+                    "product_uom_id"
+                )
+
+                purchase_price_unit = safe_value(
+                    purchase_line,
+                    "price_unit",
+                    0.0
+                ) or 0.0
+
+                purchase_order = safe_value(
+                    purchase_line,
+                    "order_id"
+                )
+
+            # ------------------------------------------------------------------
+            # DIAGNOSTIC LOGGING
+            # ------------------------------------------------------------------
+
+            _logger.warning("=" * 100)
+            _logger.warning("INSPECT AML - START")
+            _logger.warning("=" * 100)
 
             _logger.warning(
                 "AML BASIC | "
-                "id=%s | date=%s | move_id=%s | move_name=%s | "
-                "move_type=%s | partner=%s | display_type=%s",
+                "id=%s | date=%s | move=%s | account=%s | partner=%s | "
+                "display_type=%s | partner_kind=%s",
                 line.id,
                 line.date,
-                move.id if move else None,
                 move.name if move else None,
-                move.move_type if move else None,
-                line.partner_id.display_name
-                if line.partner_id else None,
+                line.account_id.display_name if line.account_id else None,
+                partner.display_name if partner else None,
                 line.display_type,
+                partner_kind,
             )
-
-            # ------------------------------------------------------
-            # ACCOUNT
-            # ------------------------------------------------------
 
             _logger.warning(
-                "AML ACCOUNT | "
-                "account_id=%s | code=%s | name=%s | account_type=%s",
-                line.account_id.id if line.account_id else None,
-                line.account_id.code if line.account_id else None,
-                line.account_id.name if line.account_id else None,
-                line.account_id.account_type
-                if line.account_id else None,
+                "AML RAW | "
+                "product=%s | quantity=%s | price_unit=%s | debit=%s | credit=%s",
+                aml_product.display_name if aml_product else None,
+                aml_quantity,
+                aml_price_unit,
+                aml_debit,
+                aml_credit,
             )
-
-            # ------------------------------------------------------
-            # AML FINANCIAL VALUES
-            # ------------------------------------------------------
 
             _logger.warning(
-                "AML MONEY | "
-                "debit=%s | credit=%s | balance=%s | "
-                "amount_currency=%s | currency=%s",
-                line.debit,
-                line.credit,
-                line.balance,
-                line.amount_currency,
-                line.currency_id.name
-                if line.currency_id else None,
+                "PURCHASE LINK | "
+                "purchase_line_id=%s | purchase_order=%s",
+                purchase_line.id if purchase_line else None,
+                purchase_order.name if purchase_order else None,
             )
 
-            # ------------------------------------------------------
-            # AML PRODUCT VALUES
-            # ------------------------------------------------------
-
-            _logger.warning(
-                "AML PRODUCT | "
-                "product_id=%s | product=%s | "
-                "quantity=%s | price_unit=%s | "
-                "uom_id=%s | uom=%s | "
-                "name=%s",
-                product.id if product else None,
-                product.display_name if product else None,
-                line.quantity,
-                line.price_unit,
-                line.product_uom_id.id
-                if line.product_uom_id else None,
-                line.product_uom_id.name
-                if line.product_uom_id else None,
-                line.name,
-            )
-
-            # ------------------------------------------------------
-            # MOVE BASIC
-            # ------------------------------------------------------
-
-            _logger.warning(
-                "MOVE BASIC | "
-                "move_id=%s | name=%s | ref=%s | "
-                "payment_reference=%s | invoice_origin=%s | "
-                "invoice_date=%s",
-                move.id if move else None,
-                move.name if move else None,
-                move.ref if move else None,
-                move.payment_reference if move else None,
-                move.invoice_origin if move else None,
-                move.invoice_date if move else None,
-            )
-
-            # ======================================================
-            # 3. INVOICE LINES
-            # ======================================================
-
-            invoice_lines = move.invoice_line_ids
-
-            _logger.warning(
-                "INVOICE LINES | move=%s | count=%s | ids=%s",
-                move.name if move else None,
-                len(invoice_lines),
-                invoice_lines.ids,
-            )
-
-            for inv_line in invoice_lines:
-
-                _logger.warning("")
+            if purchase_line:
                 _logger.warning(
-                    "INVOICE LINE DETAIL | "
-                    "id=%s | move=%s",
-                    inv_line.id,
-                    move.name if move else None,
+                    "PURCHASE RAW | "
+                    "product=%s | product_qty=%s | product_uom_id=%s | "
+                    "product_uom=%s | price_unit=%s",
+                    purchase_product.display_name if purchase_product else None,
+                    purchase_qty,
+                    purchase_uom.id if purchase_uom else None,
+                    purchase_uom.name if purchase_uom else None,
+                    purchase_price_unit,
                 )
 
-                _logger.warning(
-                    "INVOICE LINE | "
-                    "product_id=%s | product=%s | "
-                    "quantity=%s | price_unit=%s | "
-                    "price_subtotal=%s | price_total=%s | "
-                    "discount=%s | "
-                    "uom_id=%s | uom=%s | "
-                    "display_type=%s | name=%s",
-                    inv_line.product_id.id
-                    if inv_line.product_id else None,
-                    inv_line.product_id.display_name
-                    if inv_line.product_id else None,
-                    inv_line.quantity,
-                    inv_line.price_unit,
-                    inv_line.price_subtotal,
-                    inv_line.price_total,
-                    inv_line.discount,
-                    inv_line.product_uom_id.id
-                    if inv_line.product_uom_id else None,
-                    inv_line.product_uom_id.name
-                    if inv_line.product_uom_id else None,
-                    inv_line.display_type,
-                    inv_line.name,
-                )
+            # ------------------------------------------------------------------
+            # DECIDE SOURCE OF QUANTITY / PRICE / UOM
+            # ------------------------------------------------------------------
 
-                # --------------------------------------------------
-                # PURCHASE LINE
-                # --------------------------------------------------
-
-                purchase_line = False
-
-                if hasattr(inv_line, 'purchase_line_id'):
-                    purchase_line = inv_line.purchase_line_id
-
-                _logger.warning(
-                    "INVOICE -> PURCHASE LINE | "
-                    "invoice_line_id=%s | purchase_line_id=%s",
-                    inv_line.id,
-                    purchase_line.id
-                    if purchase_line else None,
-                )
-
-                if purchase_line:
-
-                    _logger.warning(
-                        "PURCHASE LINE DETAIL | "
-                        "id=%s | order=%s | "
-                        "product=%s | quantity=%s | "
-                        "price_unit=%s | "
-                        "product_uom=%s | "
-                        "qty_received=%s | qty_invoiced=%s",
-                        purchase_line.id,
-                        purchase_line.order_id.name
-                        if purchase_line.order_id else None,
-                        purchase_line.product_id.display_name
-                        if purchase_line.product_id else None,
-                        purchase_line.product_qty,
-                        purchase_line.price_unit,
-                        purchase_line.product_uom.name
-                        if purchase_line.product_uom else None,
-                        purchase_line.qty_received,
-                        purchase_line.qty_invoiced,
-                    )
-
-            # ======================================================
-            # 4. PURCHASE ORDER LINES DIRECTLY
-            # ======================================================
-
-            purchase_lines = self.env['purchase.order.line']
-
-            if move:
-
-                # Different Odoo versions may expose purchase_line_id
-                # differently, so inspect every invoice line.
-                for inv_line in invoice_lines:
-
-                    if hasattr(inv_line, 'purchase_line_id'):
-                        if inv_line.purchase_line_id:
-                            purchase_lines |= inv_line.purchase_line_id
-
-            _logger.warning(
-                "PURCHASE LINES FOUND | count=%s ids=%s",
-                len(purchase_lines),
-                purchase_lines.ids,
-            )
-
-            for po_line in purchase_lines:
-
-                _logger.warning(
-                    "PO LINE | "
-                    "id=%s | order=%s | "
-                    "product_id=%s | product=%s | "
-                    "product_qty=%s | price_unit=%s | "
-                    "qty_received=%s | qty_invoiced=%s | "
-                    "uom_id=%s | uom=%s",
-                    po_line.id,
-                    po_line.order_id.name
-                    if po_line.order_id else None,
-                    po_line.product_id.id
-                    if po_line.product_id else None,
-                    po_line.product_id.display_name
-                    if po_line.product_id else None,
-                    po_line.product_qty,
-                    po_line.price_unit,
-                    po_line.qty_received,
-                    po_line.qty_invoiced,
-                    po_line.product_uom.id
-                    if po_line.product_uom else None,
-                    po_line.product_uom.name
-                    if po_line.product_uom else None,
-                )
-
-            # ======================================================
-            # 5. RELATED STOCK MOVES
             #
-            # For vendor bills, quantities displayed in operational
-            # screens can sometimes originate from stock/purchase
-            # information rather than AML.quantity.
-            # ======================================================
+            # VENDOR:
+            #   If AML is linked to a purchase.order.line, ALWAYS use:
+            #
+            #       purchase_line.product_qty
+            #       purchase_line.product_uom_id
+            #       purchase_line.price_unit
+            #
+            #   Never use AML.quantity for this case.
+            #
+            # CUSTOMER:
+            #   Use AML quantity / price_unit.
+            #
 
-            stock_moves = self.env['stock.move']
+            if (
+                partner_kind == "vendor"
+                and purchase_line
+                and line.display_type == "product"
+            ):
+                report_quantity = purchase_qty
+                report_unit_price = purchase_price_unit
+                report_uom = purchase_uom
 
-            if purchase_lines:
+                quantity_source = "PURCHASE_LINE.product_qty"
+                price_source = "PURCHASE_LINE.price_unit"
+                uom_source = "PURCHASE_LINE.product_uom_id"
 
-                for po_line in purchase_lines:
+            else:
+                report_quantity = aml_quantity
+                report_unit_price = aml_price_unit
+                report_uom = (
+                    safe_value(line, "product_uom_id")
+                    if "product_uom_id" in line._fields
+                    else False
+                )
 
-                    if hasattr(po_line, 'move_ids'):
-                        stock_moves |= po_line.move_ids
+                quantity_source = "AML.quantity"
+                price_source = "AML.price_unit"
+                uom_source = "AML.product_uom_id"
 
-            _logger.warning(
-                "STOCK MOVES FROM PO | count=%s ids=%s",
-                len(stock_moves),
-                stock_moves.ids,
+            # ------------------------------------------------------------------
+            # PRODUCT
+            # ------------------------------------------------------------------
+
+            if purchase_line and partner_kind == "vendor":
+                report_product = purchase_product or aml_product
+            else:
+                report_product = aml_product
+
+            # ------------------------------------------------------------------
+            # DESCRIPTION
+            # ------------------------------------------------------------------
+
+            if report_product:
+                product_description = report_product.display_name
+            else:
+                product_description = move.name if move else ""
+
+            # ------------------------------------------------------------------
+            # UOM NAME
+            # ------------------------------------------------------------------
+
+            report_uom_name = (
+                report_uom.name
+                if report_uom
+                else ""
             )
 
-            for stock_move in stock_moves:
+            # ------------------------------------------------------------------
+            # BALANCE EFFECT
+            # ------------------------------------------------------------------
 
-                _logger.warning(
-                    "STOCK MOVE | "
-                    "id=%s | name=%s | product=%s | "
-                    "product_uom_qty=%s | quantity=%s | "
-                    "quantity_done=%s | state=%s | "
-                    "uom=%s | date=%s",
-                    stock_move.id,
-                    stock_move.name,
-                    stock_move.product_id.display_name
-                    if stock_move.product_id else None,
-                    stock_move.product_uom_qty,
-                    getattr(stock_move, 'quantity', None),
-                    getattr(stock_move, 'quantity_done', None),
-                    stock_move.state,
-                    stock_move.product_uom.name
-                    if stock_move.product_uom else None,
-                    stock_move.date,
+            #
+            # Balance must ONLY be affected by the control account.
+            #
+            # The control account is already determined by the caller.
+            #
+            # Therefore do not use debit/credit from arbitrary accounts here.
+            #
+
+            is_control_account = False
+
+            if line.account_id and control_account:
+                is_control_account = (
+                    line.account_id.id == control_account.id
                 )
 
-            # ======================================================
-            # 6. POSSIBLE SOURCE FROM PURCHASE ORDER
-            # ======================================================
+            if is_control_account:
+                if partner_kind == "vendor":
+                    balance_effect = aml_credit - aml_debit
+                else:
+                    balance_effect = aml_debit - aml_credit
+            else:
+                balance_effect = 0.0
 
-            if move:
+            # ------------------------------------------------------------------
+            # DESCRIPTION FOR NON-PRODUCT LINES
+            # ------------------------------------------------------------------
 
-                _logger.warning(
-                    "MOVE PURCHASE ORIGIN | "
-                    "invoice_origin=%s",
-                    move.invoice_origin,
-                )
+            if line.display_type != "product":
+                if move:
+                    if move.move_type in (
+                        "in_invoice",
+                        "in_refund",
+                        "in_receipt",
+                    ):
+                        if partner_kind == "vendor":
+                            product_description = move.name
+                    elif move.move_type in (
+                        "out_invoice",
+                        "out_refund",
+                        "out_receipt",
+                    ):
+                        product_description = move.name
 
-                if move.invoice_origin:
+                if not product_description:
+                    product_description = line.name or ""
 
-                    orders = self.env['purchase.order'].search([
-                        ('name', 'in', [
-                            x.strip()
-                            for x in move.invoice_origin.split(',')
-                            if x.strip()
-                        ])
-                    ])
+            # ------------------------------------------------------------------
+            # FINAL DIAGNOSTIC LOG
+            # ------------------------------------------------------------------
 
-                    _logger.warning(
-                        "PURCHASE ORDERS BY invoice_origin | "
-                        "count=%s ids=%s names=%s",
-                        len(orders),
-                        orders.ids,
-                        orders.mapped('name'),
-                    )
-
-                    for order in orders:
-
-                        _logger.warning(
-                            "PURCHASE ORDER | "
-                            "id=%s | name=%s | partner=%s | "
-                            "lines=%s",
-                            order.id,
-                            order.name,
-                            order.partner_id.display_name
-                            if order.partner_id else None,
-                            len(order.order_line),
-                        )
-
-                        for po_line in order.order_line:
-
-                            _logger.warning(
-                                "PO ORDER LINE | "
-                                "id=%s | product=%s | "
-                                "product_qty=%s | price_unit=%s | "
-                                "qty_received=%s | qty_invoiced=%s | "
-                                "uom=%s",
-                                po_line.id,
-                                po_line.product_id.display_name
-                                if po_line.product_id else None,
-                                po_line.product_qty,
-                                po_line.price_unit,
-                                po_line.qty_received,
-                                po_line.qty_invoiced,
-                                po_line.product_uom.name
-                                if po_line.product_uom else None,
-                            )
-
-            # ======================================================
-            # 7. FINAL COMPARISON
-            # ======================================================
-
-            _logger.warning("")
             _logger.warning(
-                "VALUE COMPARISON | AML_ID=%s",
+                "REPORT SOURCE DECISION | "
+                "AML_ID=%s | MOVE=%s | PARTNER_KIND=%s | "
+                "PURCHASE_LINE=%s | "
+                "QTY=%s <- %s | "
+                "UOM=%s <- %s | "
+                "PRICE=%s <- %s | "
+                "PRODUCT=%s | "
+                "DEBIT=%s | CREDIT=%s | "
+                "CONTROL=%s | BALANCE_EFFECT=%s",
                 line.id,
+                move.name if move else None,
+                partner_kind,
+                purchase_line.id if purchase_line else None,
+                report_quantity,
+                quantity_source,
+                report_uom_name,
+                uom_source,
+                report_unit_price,
+                price_source,
+                report_product.display_name if report_product else None,
+                aml_debit,
+                aml_credit,
+                is_control_account,
+                balance_effect,
             )
 
-            _logger.warning(
-                "SOURCE A - AML | quantity=%s | price=%s | "
-                "debit=%s | credit=%s",
-                line.quantity,
-                line.price_unit,
-                line.debit,
-                line.credit,
-            )
+            _logger.warning("=" * 100)
+            _logger.warning("INSPECT AML - END")
+            _logger.warning("=" * 100)
 
-            matching_invoice_lines = invoice_lines.filtered(
-                lambda x:
-                    x.product_id
-                    and product
-                    and x.product_id == product
-            )
+            # ------------------------------------------------------------------
+            # RETURN REPORT ROW
+            # ------------------------------------------------------------------
 
-            for inv_line in matching_invoice_lines:
+            return {
+                "aml_id": line.id,
 
-                _logger.warning(
-                    "SOURCE B - INVOICE LINE | "
-                    "id=%s | quantity=%s | price=%s | "
-                    "subtotal=%s | total=%s",
-                    inv_line.id,
-                    inv_line.quantity,
-                    inv_line.price_unit,
-                    inv_line.price_subtotal,
-                    inv_line.price_total,
-                )
+                "date": line.date,
 
-                if hasattr(inv_line, 'purchase_line_id'):
+                "transaction": (
+                    move.name
+                    if move
+                    else ""
+                ),
 
-                    po_line = inv_line.purchase_line_id
+                "product": (
+                    report_product.display_name
+                    if report_product
+                    else ""
+                ),
 
-                    if po_line:
+                "description": product_description,
 
-                        _logger.warning(
-                            "SOURCE C - PURCHASE LINE | "
-                            "id=%s | quantity=%s | price=%s",
-                            po_line.id,
-                            po_line.product_qty,
-                            po_line.price_unit,
-                        )
+                "quantity": report_quantity,
 
-            _logger.warning(
-                "DEEP AML INSPECTION END | AML_ID=%s",
-                line.id,
-            )
+                "unit_price": report_unit_price,
 
+                "uom": report_uom_name,
+
+                "debit": aml_debit,
+
+                "credit": aml_credit,
+
+                "balance_effect": balance_effect,
+
+                # Optional technical/debug fields.
+                # These are useful while testing and can be removed later.
+                "quantity_source": quantity_source,
+                "price_source": price_source,
+                "uom_source": uom_source,
+
+                "purchase_line_id": (
+                    purchase_line.id
+                    if purchase_line
+                    else False
+                ),
+
+                "purchase_order": (
+                    purchase_order.name
+                    if purchase_order
+                    else ""
+                ),
+            }
         # ==========================================================
         # 8. INSPECT ALL SELECTED LINES
         # ==========================================================
