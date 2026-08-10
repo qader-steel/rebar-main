@@ -24,201 +24,314 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-from odoo import api, models
-import logging
-
-_logger = logging.getLogger(__name__)
 
 
 class CustomerStatementReport(models.AbstractModel):
-
     _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report'
-
 
     @api.model
     def _get_report_values(self, docids, data=None):
 
-        _logger.warning(
-            "========== CUSTOMER STATEMENT START =========="
-        )
+        _logger.warning("")
+        _logger.warning("========== CUSTOMER STATEMENT START ==========")
+        _logger.warning("DOCIDS: %s", docids)
+
+        # ==========================================================
+        # 1. Selected Journal Items
+        # ==========================================================
 
         selected_lines = self.env['account.move.line'].browse(docids).filtered(
             lambda l:
-                l.partner_id
+                l.exists()
+                and l.partner_id
                 and l.parent_state == 'posted'
                 and l.account_id.account_type in (
                     'asset_receivable',
-                    'liability_payable'
+                    'liability_payable',
                 )
         )
-
 
         _logger.warning(
             "SELECTED RECEIVABLE LINES = %s",
             len(selected_lines)
         )
 
-
         if not selected_lines:
+            _logger.warning("NO VALID SELECTED LINES")
+
             return {
                 'doc_ids': docids,
                 'doc_model': 'account.move.line',
                 'docs': selected_lines,
                 'statements': [],
+                'date_from': False,
+                'date_to': False,
             }
 
+        # ==========================================================
+        # 2. Partners
+        # ==========================================================
 
         partners = selected_lines.mapped('partner_id')
 
+        _logger.warning(
+            "PARTNERS: %s",
+            partners.mapped('name')
+        )
 
-        date_from = min(selected_lines.mapped('date'))
-        date_to = max(selected_lines.mapped('date'))
+        # ==========================================================
+        # 3. Date Range
+        # ==========================================================
 
+        dates = selected_lines.mapped('date')
 
+        date_from = min(dates) if dates else False
+        date_to = max(dates) if dates else False
+
+        _logger.warning(
+            "DATE RANGE %s -> %s",
+            date_from,
+            date_to
+        )
+
+        # ==========================================================
+        # 4. Load ALL receivable/payable lines for selected
+        #    partners and selected period
+        # ==========================================================
+
+        aml = self.env['account.move.line'].search([
+            ('partner_id', 'in', partners.ids),
+            ('parent_state', '=', 'posted'),
+            ('account_id.account_type', 'in', (
+                'asset_receivable',
+                'liability_payable',
+            )),
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+        ], order='date,id')
+
+        _logger.warning(
+            "ALL RECEIVABLE/PAYABLE LINES = %s",
+            len(aml)
+        )
 
         statements = []
 
+        # ==========================================================
+        # 5. Process each partner
+        # ==========================================================
 
         for partner in partners:
 
-
+            _logger.warning("")
             _logger.warning(
                 "PROCESS PARTNER %s",
                 partner.name
             )
 
+            # ======================================================
+            # Customer Receivable Account
+            # ======================================================
 
             account = partner.property_account_receivable_id
 
+            if not account:
+                account = partner.property_account_payable_id
 
-            moves = self.env['account.move.line'].search([
+            if not account:
+                _logger.warning(
+                    "NO RECEIVABLE/PAYABLE ACCOUNT FOR PARTNER %s",
+                    partner.name
+                )
 
-                ('partner_id','=',partner.id),
+                continue
 
-                ('account_id','=',account.id),
-
-                ('parent_state','=','posted'),
-
-                ('date','>=',date_from),
-
-                ('date','<=',date_to),
-
-            ], order='date,id')
-
-
-
-            opening_lines = self.env['account.move.line'].search([
-
-                ('partner_id','=',partner.id),
-
-                ('account_id','=',account.id),
-
-                ('parent_state','=','posted'),
-
-                ('date','<',date_from),
-
-            ])
-
-
-            opening_balance = sum(
-                opening_lines.mapped('debit')
-            ) - sum(
-                opening_lines.mapped('credit')
+            _logger.warning(
+                "PARTNER ACCOUNT = %s / %s",
+                account.code,
+                account.name
             )
 
+            # ======================================================
+            # 6. Partner Moves
+            # ======================================================
+
+            moves = aml.filtered(
+                lambda l:
+                    l.partner_id == partner
+                    and l.account_id == account
+            )
+
+            _logger.warning(
+                "MOVES COUNT = %s",
+                len(moves)
+            )
+
+            # ======================================================
+            # 7. Opening Balance
+            # ======================================================
+
+            opening_lines = self.env['account.move.line'].search([
+                ('partner_id', '=', partner.id),
+                ('account_id', '=', account.id),
+                ('parent_state', '=', 'posted'),
+                ('date', '<', date_from),
+            ])
+
+            opening_debit = sum(opening_lines.mapped('debit'))
+            opening_credit = sum(opening_lines.mapped('credit'))
+
+            opening_balance = opening_debit - opening_credit
+
+            _logger.warning(
+                "OPENING BALANCE = %s",
+                opening_balance
+            )
+
+            # ======================================================
+            # Running Balance
+            # ======================================================
 
             balance = opening_balance
 
+            result_lines = []
 
-            result_lines=[]
+            total_qty = 0.0
+            total_debit = 0.0
+            total_credit = 0.0
 
-            total_debit=0
-            total_credit=0
-            total_qty=0
-
-
+            # ======================================================
+            # 8. Process Journal Items
+            # ======================================================
 
             for line in moves:
 
+                move = line.move_id
 
-                move=line.move_id
+                _logger.warning(
+                    "PROCESS MOVE %s TYPE %s AML=%s",
+                    move.name,
+                    move.move_type,
+                    line.id
+                )
 
-
-
-                #
-                # Invoice
-                #
+                # ==================================================
+                # Customer Invoice / Refund
+                # ==================================================
 
                 if move.move_type in (
                     'out_invoice',
-                    'out_refund'
+                    'out_refund',
                 ):
 
-
-
+                    # IMPORTANT:
+                    # In this database product invoice lines have:
+                    #
+                    # display_type = 'product'
+                    #
+                    # Therefore DO NOT use:
+                    #
+                    #     not x.display_type
+                    #
+                    # because that removes all product lines.
+                    #
                     invoice_lines = move.invoice_line_ids.filtered(
                         lambda x:
-                            not x.display_type
-                            and x.quantity != 0
+                            x.display_type == 'product'
+                            and x.product_id
                     )
 
-
                     _logger.warning(
-                        "INVOICE %s LINES=%s",
+                        "INVOICE %s PRODUCT LINES = %s",
                         move.name,
                         len(invoice_lines)
                     )
 
+                    # ==================================================
+                    # If invoice has product lines
+                    # ==================================================
 
                     if invoice_lines:
 
-
                         for il in invoice_lines:
 
+                            amount = il.price_subtotal or 0.0
 
-                            amount = il.price_subtotal
+                            quantity = il.quantity or 0.0
+                            unit_price = il.price_unit or 0.0
 
+                            # ------------------------------------------
+                            # Customer Invoice
+                            # ------------------------------------------
 
                             if move.move_type == 'out_invoice':
 
-                                debit=amount
-                                credit=0
+                                debit = amount
+                                credit = 0.0
 
+                            # ------------------------------------------
+                            # Customer Refund
+                            # ------------------------------------------
 
                             else:
 
-                                debit=0
-                                credit=amount
+                                debit = 0.0
+                                credit = amount
 
+                            # ------------------------------------------
+                            # Running Balance
+                            # ------------------------------------------
 
+                            balance += debit - credit
 
-                            balance += debit-credit
+                            # ------------------------------------------
+                            # Totals
+                            # ------------------------------------------
 
-
+                            total_qty += quantity
                             total_debit += debit
                             total_credit += credit
-                            total_qty += il.quantity
 
-
+                            _logger.warning(
+                                """
+                                PRODUCT LINE
+                                MOVE=%s
+                                AML=%s
+                                PRODUCT=%s
+                                PRODUCT_ID=%s
+                                QTY=%s
+                                UNIT_PRICE=%s
+                                SUBTOTAL=%s
+                                DEBIT=%s
+                                CREDIT=%s
+                                BALANCE=%s
+                                """,
+                                move.name,
+                                il.id,
+                                il.product_id.display_name,
+                                il.product_id.id,
+                                quantity,
+                                unit_price,
+                                amount,
+                                debit,
+                                credit,
+                                balance,
+                            )
 
                             result_lines.append({
+                                'date': line.date,
 
-                                'date':line.date,
-
-                                'transaction':
-                                    move.name,
+                                'transaction': move.name,
 
                                 'product':
-                                    il.product_id.display_name
-                                    if il.product_id
-                                    else il.name,
+                                    il.product_id.display_name,
 
                                 'quantity':
-                                    il.quantity,
+                                    quantity,
 
                                 'unit_price':
-                                    il.price_unit,
+                                    unit_price,
 
                                 'debit':
                                     debit,
@@ -228,32 +341,55 @@ class CustomerStatementReport(models.AbstractModel):
 
                                 'balance':
                                     balance,
-
                             })
 
+                    # ==================================================
+                    # Invoice has no product lines
+                    #
+                    # This can happen with manually created invoices
+                    # or invoices whose accounting entry has no
+                    # invoice_line_ids.
+                    #
+                    # In this case use the receivable AML itself.
+                    # ==================================================
 
                     else:
 
-                        #
-                        # fallback
-                        #
+                        debit = line.debit or 0.0
+                        credit = line.credit or 0.0
 
-                        debit=line.debit
-                        credit=line.credit
+                        balance += debit - credit
 
+                        total_debit += debit
+                        total_credit += credit
 
-                        balance += debit-credit
-
+                        _logger.warning(
+                            """
+                            INVOICE WITHOUT PRODUCT LINES
+                            MOVE=%s
+                            AML=%s
+                            NAME=%s
+                            DEBIT=%s
+                            CREDIT=%s
+                            BALANCE=%s
+                            """,
+                            move.name,
+                            line.id,
+                            line.name,
+                            debit,
+                            credit,
+                            balance,
+                        )
 
                         result_lines.append({
-
-                            'date':line.date,
+                            'date':
+                                line.date,
 
                             'transaction':
                                 move.name,
 
                             'product':
-                                line.name or '',
+                                line.name or move.ref or '',
 
                             'quantity':
                                 None,
@@ -269,32 +405,41 @@ class CustomerStatementReport(models.AbstractModel):
 
                             'balance':
                                 balance,
-
                         })
 
-
-
-                #
-                # Payment
-                #
+                # ==================================================
+                # Payment / Journal Entry / Other
+                # ==================================================
 
                 else:
 
+                    debit = line.debit or 0.0
+                    credit = line.credit or 0.0
 
-                    debit=line.debit
-                    credit=line.credit
-
-
-                    balance += debit-credit
-
+                    balance += debit - credit
 
                     total_debit += debit
                     total_credit += credit
 
-
+                    _logger.warning(
+                        """
+                        JOURNAL/PAYMENT LINE
+                        MOVE=%s
+                        AML=%s
+                        NAME=%s
+                        DEBIT=%s
+                        CREDIT=%s
+                        BALANCE=%s
+                        """,
+                        move.name,
+                        line.id,
+                        line.name,
+                        debit,
+                        credit,
+                        balance,
+                    )
 
                     result_lines.append({
-
                         'date':
                             line.date,
 
@@ -302,7 +447,7 @@ class CustomerStatementReport(models.AbstractModel):
                             move.name,
 
                         'product':
-                            line.name or '',
+                            line.name or move.ref or '',
 
                         'quantity':
                             None,
@@ -318,31 +463,33 @@ class CustomerStatementReport(models.AbstractModel):
 
                         'balance':
                             balance,
-
                     })
 
-
-
+            # ======================================================
+            # 9. Statement
+            # ======================================================
 
             _logger.warning(
                 """
                 RESULT
                 PARTNER=%s
                 LINES=%s
+                QTY=%s
                 DEBIT=%s
                 CREDIT=%s
+                OPENING=%s
                 BALANCE=%s
                 """,
                 partner.name,
                 len(result_lines),
+                total_qty,
                 total_debit,
                 total_credit,
-                balance
+                opening_balance,
+                balance,
             )
 
-
             statements.append({
-
                 'partner':
                     partner,
 
@@ -363,24 +510,59 @@ class CustomerStatementReport(models.AbstractModel):
 
                 'total_credit':
                     total_credit,
-
             })
 
-
+        # ==========================================================
+        # 10. Final Debug
+        # ==========================================================
 
         _logger.warning(
-            "STATEMENTS COUNT %s",
+            "STATEMENTS COUNT = %s",
             len(statements)
         )
 
+        for statement in statements:
+
+            _logger.warning(
+                "STATEMENT PARTNER=%s LINES=%s",
+                statement['partner'].name,
+                len(statement['lines'])
+            )
+
+            for report_line in statement['lines']:
+
+                _logger.warning(
+                    """
+                    REPORT LINE
+                    DATE=%s
+                    TRANSACTION=%s
+                    PRODUCT=%s
+                    QTY=%s
+                    PRICE=%s
+                    DEBIT=%s
+                    CREDIT=%s
+                    BALANCE=%s
+                    """,
+                    report_line['date'],
+                    report_line['transaction'],
+                    report_line['product'],
+                    report_line['quantity'],
+                    report_line['unit_price'],
+                    report_line['debit'],
+                    report_line['credit'],
+                    report_line['balance'],
+                )
 
         _logger.warning(
             "========== CUSTOMER STATEMENT END =========="
         )
+        _logger.warning("")
 
+        # ==========================================================
+        # 11. Report Values
+        # ==========================================================
 
         return {
-
             'doc_ids':
                 docids,
 
@@ -398,8 +580,12 @@ class CustomerStatementReport(models.AbstractModel):
 
             'date_to':
                 date_to,
-
         }
+
+
+
+
+
 
 
 class CustomerStatementWizard(models.TransientModel):
