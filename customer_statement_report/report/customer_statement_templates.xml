@@ -293,6 +293,8 @@
 
     </template> -->
 
+
+
 <template id="from_lines">
 
     <t t-call="web.html_container">
@@ -330,38 +332,105 @@
 
             .statement-table {
                 width: 100%;
-                font-size: 7.5px;
+                table-layout: fixed;
+                border-collapse: collapse;
+                font-size: 7px;
                 line-height: 1.1;
                 margin-bottom: 8px;
             }
 
             .statement-table th,
             .statement-table td {
-                padding: 3px 4px !important;
+                padding: 2px 3px !important;
                 vertical-align: middle;
+                overflow: hidden;
+                box-sizing: border-box;
             }
 
             .statement-table thead th {
-                font-size: 7.5px;
+                font-size: 7px;
                 font-weight: bold;
-                white-space: nowrap;
+                white-space: normal;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
 
             .statement-table td {
-                word-break: normal;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                white-space: normal !important;
+            }
+
+
+            /* ================================
+               Fixed Column Widths
+               ================================ */
+
+            .statement-table col.col-date {
+                width: 7%;
+            }
+
+            .statement-table col.col-trans {
+                width: 12%;
+            }
+
+            .statement-table col.col-desc {
+                width: 25%;
+            }
+
+            .statement-table col.col-qty {
+                width: 8%;
+            }
+
+            .statement-table col.col-price {
+                width: 10%;
+            }
+
+            .statement-table col.col-debit {
+                width: 13%;
+            }
+
+            .statement-table col.col-credit {
+                width: 13%;
+            }
+
+            .statement-table col.col-balance {
+                width: 12%;
+            }
+
+
+            /* ================================
+               Numeric Columns
+               ================================ */
+
+            .statement-table td.text-end,
+            .statement-table th.text-end {
+                text-align: right;
+                font-size: 6.5px;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                white-space: normal !important;
+            }
+
+
+            /* ================================
+               Transaction / Description
+               ================================ */
+
+            .statement-table td:nth-child(2),
+            .statement-table td:nth-child(3) {
+                word-break: break-word;
+                overflow-wrap: break-word;
             }
 
 
             /* ================================
                Final Total
-               IMPORTANT:
-               Outside the table so it appears
-               only once after all pages.
                ================================ */
 
             .statement-total {
                 width: 100%;
-                font-size: 8px;
+                font-size: 7px;
                 margin-top: 5px;
                 margin-bottom: 10px;
                 page-break-inside: avoid;
@@ -369,12 +438,18 @@
 
             .statement-total table {
                 width: 100%;
+                table-layout: fixed;
+                border-collapse: collapse;
             }
 
             .statement-total th,
             .statement-total td {
-                padding: 4px !important;
+                padding: 3px !important;
                 font-weight: bold;
+                font-size: 7px;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
             }
 
 
@@ -402,18 +477,27 @@
         </style>
 
 
+        <!-- ==========================================
+             LOOP THROUGH STATEMENTS
+             ========================================== -->
+
         <t t-foreach="statements" t-as="stmt_data">
+
 
             <t t-call="web.external_layout">
 
+
                 <div class="page">
+
 
                     <!-- ==========================
                          Report Title
                          ========================== -->
 
                     <h2 class="text-center statement-title">
+
                         Customer Statement Report
+
                     </h2>
 
 
@@ -423,30 +507,50 @@
 
                     <div class="row statement-info">
 
-                        <div class="col-3">
-                            <strong>Partner Name:</strong>
-                            <span t-esc="stmt_data['partner'].name"/>
-                        </div>
 
                         <div class="col-3">
+
+                            <strong>Partner Name:</strong>
+
+                            <span t-esc="stmt_data['partner'].name"/>
+
+                        </div>
+
+
+                        <div class="col-3">
+
                             <strong>Initial Balance:</strong>
+
                             <span>
+
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['opening_balance']
                                 )"/>
+
                             </span>
+
                             IQD
+
                         </div>
 
+
                         <div class="col-3">
+
                             <strong>From:</strong>
+
                             <span t-esc="date_from"/>
+
                         </div>
 
+
                         <div class="col-3">
+
                             <strong>To:</strong>
+
                             <span t-esc="date_to"/>
+
                         </div>
+
 
                     </div>
 
@@ -457,31 +561,71 @@
 
                     <table class="table table-sm table-bordered statement-table">
 
+
+                        <!-- ==========================================
+                             IMPORTANT:
+                             Fixed column widths
+                             ========================================== -->
+
+                        <colgroup>
+
+                            <col class="col-date"/>
+
+                            <col class="col-trans"/>
+
+                            <col class="col-desc"/>
+
+                            <col class="col-qty"/>
+
+                            <col class="col-price"/>
+
+                            <col class="col-debit"/>
+
+                            <col class="col-credit"/>
+
+                            <col class="col-balance"/>
+
+                        </colgroup>
+
+
                         <thead>
 
                             <tr>
 
-                                <th>Date</th>
+                                <th>
+                                    Date
+                                </th>
 
-                                <th>Transaction</th>
 
-                                <th>Product / Description</th>
+                                <th>
+                                    Transaction
+                                </th>
+
+
+                                <th>
+                                    Product / Description
+                                </th>
+
 
                                 <th class="text-end">
                                     Quantity
                                 </th>
 
+
                                 <th class="text-end">
                                     Unit Price
                                 </th>
+
 
                                 <th class="text-end">
                                     Debit
                                 </th>
 
+
                                 <th class="text-end">
                                     Credit
                                 </th>
+
 
                                 <th class="text-end">
                                     Balance
@@ -494,48 +638,81 @@
 
                         <tbody>
 
+
                             <t t-foreach="stmt_data['lines']" t-as="line">
+
 
                                 <tr>
 
+
+                                    <!-- ==========================
+                                         Date
+                                         ========================== -->
+
                                     <td>
+
                                         <span t-esc="line['date']"/>
+
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Transaction
+                                         ========================== -->
 
                                     <td>
+
                                         <span t-esc="line['transaction']"/>
+
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Product / Description
+                                         ========================== -->
 
                                     <td style="white-space: pre-line;">
+
                                         <span t-esc="line['product']"/>
+
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Quantity
+                                         ========================== -->
 
                                     <td class="text-end">
 
                                         <t t-if="line['quantity'] is not None">
 
                                             <span>
+
                                                 <t t-esc="'{:,.3f}'.format(
                                                     line['quantity']
                                                 )"/>
+
                                             </span>
 
                                         </t>
 
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Unit Price
+                                         ========================== -->
 
                                     <td class="text-end">
 
                                         <t t-if="line['unit_price'] is not None">
 
                                             <span>
+
                                                 <t t-esc="'{:,.2f}'.format(
                                                     line['unit_price']
                                                 )"/>
+
                                             </span>
 
                                         </t>
@@ -543,104 +720,185 @@
                                     </td>
 
 
+                                    <!-- ==========================
+                                         Debit
+                                         ========================== -->
+
                                     <td class="text-end">
 
                                         <span>
+
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['debit']
                                             )"/>
+
                                         </span>
 
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Credit
+                                         ========================== -->
 
                                     <td class="text-end">
 
                                         <span>
+
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['credit']
                                             )"/>
+
                                         </span>
 
                                     </td>
 
+
+                                    <!-- ==========================
+                                         Balance
+                                         ========================== -->
 
                                     <td class="text-end">
 
                                         <strong>
+
                                             <t t-esc="'{:,.2f}'.format(
                                                 line['balance']
                                             )"/>
+
                                         </strong>
 
                                     </td>
 
+
                                 </tr>
+
 
                             </t>
 
+
                         </tbody>
+
 
                     </table>
 
 
                     <!-- ==========================
                          GLOBAL TOTAL
-                         NOT inside table
                          ========================== -->
 
                     <div class="statement-total">
 
+
                         <table class="table table-sm table-bordered">
 
-                            <tr>
 
-                                <th colspan="3">
-                                    Total
-                                </th>
+                            <!-- Fixed widths for total table -->
 
+                            <colgroup>
 
-                                <th class="text-end">
+                                <col style="width: 7%;"/>
 
-                                    <t t-esc="'{:,.3f}'.format(
-                                        stmt_data['total_qty']
-                                    )"/>
+                                <col style="width: 12%;"/>
 
-                                </th>
+                                <col style="width: 25%;"/>
 
+                                <col style="width: 8%;"/>
 
-                                <th></th>
+                                <col style="width: 10%;"/>
 
+                                <col style="width: 13%;"/>
 
-                                <th class="text-end">
+                                <col style="width: 13%;"/>
 
-                                    <t t-esc="'{:,.2f}'.format(
-                                        stmt_data['total_debit']
-                                    )"/>
+                                <col style="width: 12%;"/>
 
-                                </th>
+                            </colgroup>
 
 
-                                <th class="text-end">
+                            <tbody>
 
-                                    <t t-esc="'{:,.2f}'.format(
-                                        stmt_data['total_credit']
-                                    )"/>
-
-                                </th>
+                                <tr>
 
 
-                                <th class="text-end">
+                                    <!-- ==========================
+                                         Total Label
+                                         ========================== -->
 
-                                    <t t-esc="'{:,.2f}'.format(
-                                        stmt_data['closing_balance']
-                                    )"/>
+                                    <th colspan="3">
 
-                                </th>
+                                        Total
 
-                            </tr>
+                                    </th>
+
+
+                                    <!-- ==========================
+                                         Total Quantity
+                                         ========================== -->
+
+                                    <th class="text-end">
+
+                                        <t t-esc="'{:,.3f}'.format(
+                                            stmt_data['total_qty']
+                                        )"/>
+
+                                    </th>
+
+
+                                    <!-- ==========================
+                                         Empty Unit Price
+                                         ========================== -->
+
+                                    <th>
+                                    </th>
+
+
+                                    <!-- ==========================
+                                         Total Debit
+                                         ========================== -->
+
+                                    <th class="text-end">
+
+                                        <t t-esc="'{:,.2f}'.format(
+                                            stmt_data['total_debit']
+                                        )"/>
+
+                                    </th>
+
+
+                                    <!-- ==========================
+                                         Total Credit
+                                         ========================== -->
+
+                                    <th class="text-end">
+
+                                        <t t-esc="'{:,.2f}'.format(
+                                            stmt_data['total_credit']
+                                        )"/>
+
+                                    </th>
+
+
+                                    <!-- ==========================
+                                         Closing Balance
+                                         ========================== -->
+
+                                    <th class="text-end">
+
+                                        <t t-esc="'{:,.2f}'.format(
+                                            stmt_data['closing_balance']
+                                        )"/>
+
+                                    </th>
+
+
+                                </tr>
+
+                            </tbody>
+
 
                         </table>
+
 
                     </div>
 
@@ -651,38 +909,54 @@
 
                     <div class="row statement-balance">
 
+
                         <div class="col-6">
 
+
                             <strong>
+
                                 Current Balance:
+
                             </strong>
 
+
                             <span>
+
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['closing_balance']
                                 )"/>
+
                             </span>
 
                             IQD
+
 
                         </div>
 
 
                         <div class="col-6">
 
+
                             <strong>
+
                                 Final Account Balance:
+
                             </strong>
 
+
                             <span>
+
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['closing_balance']
                                 )"/>
+
                             </span>
 
                             IQD
 
+
                         </div>
+
 
                     </div>
 
@@ -693,44 +967,68 @@
 
                     <div class="row statement-signature">
 
+
                         <div class="col-6">
 
+
                             <strong>
+
                                 Accountant Name:
+
                             </strong>
 
-                            __________________________
+
+                            __________________________________
+
 
                         </div>
 
 
                         <div class="col-6">
 
+
                             <strong>
+
                                 Accountant Signature:
+
                             </strong>
 
-                            __________________________
+
+                            __________________________________
+
 
                         </div>
+
 
                     </div>
 
+
                 </div>
 
+
             </t>
 
 
-            <!-- Separate statements -->
+            <!-- ==========================
+                 Separate Statements
+                 ========================== -->
+
             <t t-if="not stmt_data_last">
-                <div style="page-break-after: always;"/>
+
+                <div style="page-break-after: always;"></div>
+
             </t>
+
 
         </t>
+
 
     </t>
 
 </template>
+
+
+
 
 
     <template id="statement">
