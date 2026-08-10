@@ -1772,7 +1772,6 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-
 import logging
 
 from odoo import api, models
@@ -1792,56 +1791,15 @@ class CustomerStatementReport(models.AbstractModel):
     def _is_payment_move(self, move):
         """
         Detect real payment / cash / bank moves.
-
-        Payment moves are normally account.move entries.
-        We also consider cash/bank journal moves as payment-like
-        movements because the report wants those movements shown.
         """
 
-        # ------------------------------------------------------
-        # Real payment linked to account.payment
-        # ------------------------------------------------------
-
         if 'payment_id' in move._fields and move.payment_id:
-
-            _logger.debug(
-                "PAYMENT DETECTION | MOVE=%s | "
-                "REASON=payment_id | PAYMENT_ID=%s",
-                move.name,
-                move.payment_id.id,
-            )
-
             return True
-
-        # ------------------------------------------------------
-        # Bank statement line
-        # ------------------------------------------------------
 
         if 'statement_line_id' in move._fields and move.statement_line_id:
-
-            _logger.debug(
-                "PAYMENT DETECTION | MOVE=%s | "
-                "REASON=statement_line_id | STATEMENT_ID=%s",
-                move.name,
-                move.statement_line_id.id,
-            )
-
             return True
 
-        # ------------------------------------------------------
-        # Cash / Bank journal
-        # ------------------------------------------------------
-
         if move.journal_id and move.journal_id.type in ('cash', 'bank'):
-
-            _logger.debug(
-                "PAYMENT DETECTION | MOVE=%s | "
-                "REASON=journal_type | JOURNAL=%s | JOURNAL_TYPE=%s",
-                move.name,
-                move.journal_id.name,
-                move.journal_id.type,
-            )
-
             return True
 
         return False
@@ -1849,205 +1807,48 @@ class CustomerStatementReport(models.AbstractModel):
     def _is_invoice_move(self, move):
         """
         Invoice / Bill / Refund documents.
-
-        Only product invoice lines are displayed.
-        Receivable/payable lines are excluded.
         """
 
-        result = move.move_type in (
+        return move.move_type in (
             'out_invoice',
             'in_invoice',
             'out_refund',
             'in_refund',
         )
 
-        _logger.debug(
-            "INVOICE DETECTION | MOVE=%s | TYPE=%s | RESULT=%s",
-            move.name,
-            move.move_type,
-            result,
-        )
-
-        return result
-
     def _is_product_line(self, line):
         """
-        A real product invoice line.
-
-        Product must exist.
-        Sections and notes are excluded.
+        Real product invoice line only.
         """
 
-        if not line.product_id:
-
-            _logger.debug(
-                "PRODUCT LINE CHECK | AML=%s | RESULT=False | "
-                "REASON=NO_PRODUCT",
-                line.id,
-            )
-
-            return False
-
-        if line.display_type not in (False, 'product'):
-
-            _logger.debug(
-                "PRODUCT LINE CHECK | AML=%s | RESULT=False | "
-                "REASON=DISPLAY_TYPE | DISPLAY_TYPE=%s",
-                line.id,
-                line.display_type,
-            )
-
-            return False
-
-        return True
+        return bool(
+            line.product_id
+            and line.display_type in (False, 'product')
+        )
 
     def _should_include_line(self, line):
         """
-        Decide whether an account.move.line should appear
-        in the report.
+        Decide whether AML should appear in the report.
         """
 
         move = line.move_id
 
-        # ------------------------------------------------------
-        # Invoice / Bill / Refund
-        # ------------------------------------------------------
-
+        # Invoice / Bill / Refund:
+        # only product lines
         if self._is_invoice_move(move):
+            return self._is_product_line(line)
 
-            result = self._is_product_line(line)
-
-            _logger.debug(
-                "INCLUDE CHECK | AML=%s | MOVE=%s | "
-                "KIND=INVOICE | INCLUDE=%s",
-                line.id,
-                move.name,
-                result,
-            )
-
-            return result
-
-        # ------------------------------------------------------
-        # Payment / Cash / Bank
-        # ------------------------------------------------------
-
+        # Payment / Cash / Bank:
+        # only receivable/payable lines
         if self._is_payment_move(move):
-
-            account_type = (
-                line.account_id.account_type
-                if line.account_id
-                else False
-            )
-
-            result = account_type in (
+            return line.account_id.account_type in (
                 'asset_receivable',
                 'liability_payable',
             )
 
-            _logger.debug(
-                "INCLUDE CHECK | AML=%s | MOVE=%s | "
-                "KIND=PAYMENT | ACCOUNT_TYPE=%s | INCLUDE=%s",
-                line.id,
-                move.name,
-                account_type,
-                result,
-            )
-
-            return result
-
-        # ------------------------------------------------------
-        # Other moves
-        # ------------------------------------------------------
-
-        result = self._is_product_line(line)
-
-        _logger.debug(
-            "INCLUDE CHECK | AML=%s | MOVE=%s | "
-            "KIND=OTHER | INCLUDE=%s",
-            line.id,
-            move.name,
-            result,
-        )
-
-        return result
-
-    # ==========================================================
-    # DEBUG HELPERS
-    # ==========================================================
-
-    def _log_move_details(self, move, prefix='MOVE DEBUG'):
-        """
-        Detailed diagnostic information for one account.move.
-        """
-
-        journal = move.journal_id
-
-        payment_id = False
-        statement_line_id = False
-
-        if 'payment_id' in move._fields and move.payment_id:
-            payment_id = move.payment_id.id
-
-        if 'statement_line_id' in move._fields and move.statement_line_id:
-            statement_line_id = move.statement_line_id.id
-
-        _logger.warning(
-            "%s | "
-            "ID=%s | NAME=%s | TYPE=%s | STATE=%s | "
-            "DATE=%s | PARTNER=%s | JOURNAL=%s | JOURNAL_TYPE=%s | "
-            "PAYMENT_ID=%s | STATEMENT_LINE_ID=%s | REF=%s | "
-            "PAYMENT_REFERENCE=%s",
-            prefix,
-            move.id,
-            move.name,
-            move.move_type,
-            move.state,
-            move.date,
-            move.partner_id.display_name
-            if move.partner_id
-            else None,
-            journal.name if journal else None,
-            journal.type if journal else None,
-            payment_id,
-            statement_line_id,
-            move.ref,
-            move.payment_reference,
-        )
-
-    def _log_line_details(self, line, prefix='AML DEBUG'):
-        """
-        Detailed diagnostic information for one account.move.line.
-        """
-
-        move = line.move_id
-        account = line.account_id
-
-        _logger.warning(
-            "%s | "
-            "AML=%s | MOVE=%s | MOVE_ID=%s | DATE=%s | "
-            "ACCOUNT=%s %s | ACCOUNT_TYPE=%s | "
-            "PRODUCT=%s | DISPLAY_TYPE=%s | "
-            "QTY=%s | PRICE_UNIT=%s | "
-            "DEBIT=%s | CREDIT=%s | BALANCE=%s | NAME=%s",
-            prefix,
-            line.id,
-            move.name,
-            move.id,
-            line.date,
-            account.code if account else None,
-            account.name if account else None,
-            account.account_type if account else None,
-            line.product_id.display_name
-            if line.product_id
-            else None,
-            line.display_type,
-            line.quantity,
-            line.price_unit,
-            line.debit,
-            line.credit,
-            line.balance,
-            line.name,
-        )
+        # Other moves:
+        # keep only product lines
+        return self._is_product_line(line)
 
     # ==========================================================
     # MAIN REPORT
@@ -2056,12 +1857,10 @@ class CustomerStatementReport(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
 
-        _logger.warning("")
-        _logger.warning("=" * 100)
         _logger.warning(
-            "CUSTOMER STATEMENT - DEBUG VERSION START"
+            "CUSTOMER STATEMENT START | docids=%s",
+            docids,
         )
-        _logger.warning("=" * 100)
 
         # ======================================================
         # 1. SELECTED AML
@@ -2074,22 +1873,12 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
         _logger.warning(
-            "DOCIDS | RECEIVED_COUNT=%s | RECEIVED_IDS=%s",
-            len(docids),
-            docids,
-        )
-
-        _logger.warning(
-            "SELECTED AML | COUNT=%s | IDS=%s",
+            "SELECTED AML=%s",
             len(selected_lines),
-            selected_lines.ids,
         )
 
         if not selected_lines:
-
-            _logger.error(
-                "NO SELECTED ACCOUNT MOVE LINES"
-            )
+            _logger.warning("NO ACCOUNT MOVE LINES")
 
             return {
                 'doc_ids': docids,
@@ -2107,17 +1896,14 @@ class CustomerStatementReport(models.AbstractModel):
         partners = selected_lines.mapped('partner_id')
 
         _logger.warning(
-            "PARTNERS | COUNT=%s | IDS=%s | NAMES=%s",
-            len(partners),
-            partners.ids,
-            partners.mapped('name'),
+            "PARTNERS=%s",
+            [
+                "%s(%s)" % (partner.name, partner.id)
+                for partner in partners
+            ],
         )
 
         if not partners:
-
-            _logger.error(
-                "NO PARTNERS FOUND IN SELECTED AML"
-            )
 
             dates = selected_lines.mapped('date')
 
@@ -2140,20 +1926,17 @@ class CustomerStatementReport(models.AbstractModel):
         date_to = False
 
         if data:
-
             date_from = data.get('date_from') or False
             date_to = data.get('date_to') or False
 
         if not date_from:
-
             date_from = min(dates) if dates else False
 
         if not date_to:
-
             date_to = max(dates) if dates else False
 
         _logger.warning(
-            "DATE RANGE | FROM=%s | TO=%s",
+            "DATE RANGE | from=%s | to=%s",
             date_from,
             date_to,
         )
@@ -2165,154 +1948,74 @@ class CustomerStatementReport(models.AbstractModel):
         included_lines = self.env['account.move.line']
         excluded_lines = self.env['account.move.line']
 
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning("START FILTERING SELECTED AML")
-        _logger.warning("=" * 100)
-
         for line in selected_lines:
 
             move = line.move_id
 
-            is_invoice = self._is_invoice_move(move)
-            is_payment = self._is_payment_move(move)
-
             include = self._should_include_line(line)
 
-            if is_invoice:
+            if self._is_invoice_move(move):
+                kind = 'INVOICE'
 
-                move_kind = 'INVOICE/BILL/REFUND'
-
-            elif is_payment:
-
-                move_kind = 'PAYMENT/CASH/BANK'
+            elif self._is_payment_move(move):
+                kind = 'PAYMENT'
 
             else:
+                kind = 'OTHER'
 
-                move_kind = 'OTHER'
+            if include:
+                included_lines |= line
+            else:
+                excluded_lines |= line
 
+            # IMPORTANT FILTER LOG
             _logger.warning(
-                "FILTER DECISION | "
-                "AML=%s | MOVE=%s | MOVE_ID=%s | "
-                "MOVE_TYPE=%s | KIND=%s | "
-                "JOURNAL=%s | JOURNAL_TYPE=%s | "
-                "ACCOUNT=%s %s | ACCOUNT_TYPE=%s | "
-                "PRODUCT=%s | QTY=%s | "
-                "RAW_DEBIT=%s | RAW_CREDIT=%s | "
-                "INCLUDE=%s",
+                "FILTER | AML=%s | MOVE=%s | KIND=%s | "
+                "ACCOUNT=%s | PRODUCT=%s | INCLUDE=%s",
                 line.id,
                 move.name,
-                move.id,
-                move.move_type,
-                move_kind,
-                move.journal_id.name
-                if move.journal_id
-                else None,
-                move.journal_id.type
-                if move.journal_id
-                else None,
-                line.account_id.code
-                if line.account_id
-                else None,
-                line.account_id.name
-                if line.account_id
-                else None,
-                line.account_id.account_type
-                if line.account_id
-                else None,
+                kind,
+                line.account_id.code if line.account_id else '-',
                 line.product_id.display_name
                 if line.product_id
-                else None,
-                line.quantity,
-                line.debit,
-                line.credit,
+                else '-',
                 include,
             )
 
-            if include:
-
-                included_lines |= line
-
-            else:
-
-                excluded_lines |= line
-
-        # ======================================================
-        # 5. FILTER SUMMARY
-        # ======================================================
-
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning("FILTER SUMMARY")
-        _logger.warning("=" * 100)
-
         _logger.warning(
-            "ORIGINAL SELECTED AML = %s",
+            "FILTER RESULT | selected=%s | included=%s | excluded=%s",
             len(selected_lines),
-        )
-
-        _logger.warning(
-            "INCLUDED AML = %s",
             len(included_lines),
-        )
-
-        _logger.warning(
-            "EXCLUDED AML = %s",
             len(excluded_lines),
         )
 
-        _logger.warning(
-            "INCLUDED IDS = %s",
-            included_lines.ids,
-        )
-
-        _logger.warning(
-            "EXCLUDED IDS = %s",
-            excluded_lines.ids,
-        )
-
         # ======================================================
-        # 6. LOG EXCLUDED LINES
+        # 5. LOG EXCLUDED LINES ONLY
         # ======================================================
 
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning("EXCLUDED LINES")
-        _logger.warning("=" * 100)
+        if excluded_lines:
 
-        for line in excluded_lines.sorted(
-            key=lambda l: (
-                l.date,
-                l.move_id.id,
-                l.sequence,
-                l.id,
-            )
-        ):
-
-            self._log_line_details(
-                line,
-                prefix='EXCLUDED',
+            _logger.warning(
+                "EXCLUDED IDS=%s",
+                excluded_lines.ids,
             )
 
         # ======================================================
-        # 7. OPENING BALANCE
+        # 6. STATEMENTS
         # ======================================================
 
         statements = []
 
         for partner in partners:
 
-            _logger.warning("")
-            _logger.warning("=" * 100)
             _logger.warning(
-                "PROCESS PARTNER | NAME=%s | ID=%s",
+                "PARTNER START | %s(%s)",
                 partner.name,
                 partner.id,
             )
-            _logger.warning("=" * 100)
 
             # --------------------------------------------------
-            # Selected included lines
+            # Partner included lines
             # --------------------------------------------------
 
             partner_selected = (
@@ -2331,13 +2034,13 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             _logger.warning(
-                "PARTNER INCLUDED AML | COUNT=%s | IDS=%s",
+                "PARTNER LINES | partner=%s | count=%s",
+                partner.id,
                 len(partner_selected),
-                partner_selected.ids,
             )
 
             # --------------------------------------------------
-            # Opening domain
+            # Opening Balance
             # --------------------------------------------------
 
             opening_domain = [
@@ -2346,46 +2049,14 @@ class CustomerStatementReport(models.AbstractModel):
                 ('date', '<', date_from),
             ]
 
-            _logger.warning(
-                "OPENING DOMAIN | %s",
-                opening_domain,
-            )
-
             opening_lines = (
                 self.env['account.move.line']
                 .search(opening_domain)
             )
 
-            _logger.warning(
-                "OPENING RAW AML | COUNT=%s",
-                len(opening_lines),
-            )
-
-            # --------------------------------------------------
-            # Opening filtering
-            # --------------------------------------------------
-
             opening_included = opening_lines.filtered(
                 self._should_include_line
             )
-
-            opening_excluded = opening_lines - opening_included
-
-            _logger.warning(
-                "OPENING INCLUDED AML | COUNT=%s | IDS=%s",
-                len(opening_included),
-                opening_included.ids,
-            )
-
-            _logger.warning(
-                "OPENING EXCLUDED AML | COUNT=%s | IDS=%s",
-                len(opening_excluded),
-                opening_excluded.ids,
-            )
-
-            # --------------------------------------------------
-            # Opening totals
-            # --------------------------------------------------
 
             opening_debit = sum(
                 opening_included.mapped('debit')
@@ -2400,38 +2071,17 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             _logger.warning(
-                "OPENING BALANCE | "
-                "PARTNER=%s | RAW_LINES=%s | "
-                "INCLUDED_LINES=%s | "
-                "DEBIT=%s | CREDIT=%s | BALANCE=%s",
-                partner.name,
-                len(opening_lines),
+                "OPENING | partner=%s | lines=%s | "
+                "debit=%s | credit=%s | balance=%s",
+                partner.id,
                 len(opening_included),
                 opening_debit,
                 opening_credit,
                 opening_balance,
             )
 
-            # --------------------------------------------------
-            # Opening line diagnostics
-            # --------------------------------------------------
-
-            for line in opening_included.sorted(
-                key=lambda l: (
-                    l.date,
-                    l.move_id.id,
-                    l.sequence,
-                    l.id,
-                )
-            ):
-
-                self._log_line_details(
-                    line,
-                    prefix='OPENING INCLUDED',
-                )
-
             # ==================================================
-            # 8. RUNNING BALANCE
+            # 7. RUNNING BALANCE
             # ==================================================
 
             balance = opening_balance
@@ -2443,18 +2093,8 @@ class CustomerStatementReport(models.AbstractModel):
             total_credit = 0.0
 
             # ==================================================
-            # 9. PROCESS INCLUDED LINES
+            # 8. PROCESS LINES
             # ==================================================
-
-            _logger.warning("")
-            _logger.warning("=" * 100)
-            _logger.warning(
-                "START RUNNING BALANCE | PARTNER=%s | "
-                "INITIAL BALANCE=%s",
-                partner.name,
-                balance,
-            )
-            _logger.warning("=" * 100)
 
             for line in partner_selected:
 
@@ -2468,96 +2108,7 @@ class CustomerStatementReport(models.AbstractModel):
                 is_invoice = self._is_invoice_move(move)
 
                 # ------------------------------------------------
-                # MOVE DEBUG
-                # ------------------------------------------------
-
-                self._log_move_details(
-                    move,
-                    prefix='PROCESS MOVE',
-                )
-
-                self._log_line_details(
-                    line,
-                    prefix='PROCESS AML',
-                )
-
-                # ------------------------------------------------
-                # SIGN DEBUG - BEFORE TRANSFORM
-                # ------------------------------------------------
-
-                _logger.warning("")
-                _logger.warning(
-                    "---------- SIGN DEBUG BEFORE TRANSFORM ----------"
-                )
-
-                _logger.warning(
-                    "AML ID       = %s",
-                    line.id,
-                )
-
-                _logger.warning(
-                    "MOVE         = %s",
-                    move.name,
-                )
-
-                _logger.warning(
-                    "MOVE TYPE    = %s",
-                    move.move_type,
-                )
-
-                _logger.warning(
-                    "JOURNAL      = %s",
-                    move.journal_id.name
-                    if move.journal_id
-                    else None,
-                )
-
-                _logger.warning(
-                    "JOURNAL TYPE = %s",
-                    move.journal_id.type
-                    if move.journal_id
-                    else None,
-                )
-
-                _logger.warning(
-                    "ACCOUNT      = %s %s",
-                    account.code if account else None,
-                    account.name if account else None,
-                )
-
-                _logger.warning(
-                    "ACCOUNT TYPE = %s",
-                    account.account_type
-                    if account
-                    else None,
-                )
-
-                _logger.warning(
-                    "RAW DEBIT    = %s",
-                    raw_debit,
-                )
-
-                _logger.warning(
-                    "RAW CREDIT   = %s",
-                    raw_credit,
-                )
-
-                _logger.warning(
-                    "IS PAYMENT   = %s",
-                    is_payment,
-                )
-
-                _logger.warning(
-                    "IS INVOICE   = %s",
-                    is_invoice,
-                )
-
-                _logger.warning(
-                    "-------------------------------------------------"
-                )
-
-                # ------------------------------------------------
-                # REPORT SIGN TRANSFORMATION
+                # SIGN TRANSFORMATION
                 # ------------------------------------------------
 
                 if is_payment:
@@ -2571,173 +2122,56 @@ class CustomerStatementReport(models.AbstractModel):
                     credit = raw_credit
 
                 # ------------------------------------------------
-                # SIGN DEBUG - AFTER TRANSFORM
+                # BALANCE
+                #
+                # IMPORTANT:
+                # Balance must be changed ONLY ONCE.
                 # ------------------------------------------------
-
-                delta = debit - credit
-
-                _logger.warning(
-                    "---------- SIGN DEBUG AFTER TRANSFORM -----------"
-                )
-
-                _logger.warning(
-                    "MOVE         = %s",
-                    move.name,
-                )
-
-                _logger.warning(
-                    "AML          = %s",
-                    line.id,
-                )
-
-                _logger.warning(
-                    "RAW          = debit=%s | credit=%s",
-                    raw_debit,
-                    raw_credit,
-                )
-
-                _logger.warning(
-                    "REPORT       = debit=%s | credit=%s",
-                    debit,
-                    credit,
-                )
-
-                _logger.warning(
-                    "DELTA        = debit - credit = %s",
-                    delta,
-                )
-
-                _logger.warning(
-                    "-------------------------------------------------"
-                )
-
-                # =================================================
-                # IMPORTANT BALANCE CALCULATION
-                # =================================================
-                #
-                # DO NOT increment balance before old_balance.
-                #
-                # Correct:
-                #
-                # old_balance = balance
-                # delta = debit - credit
-                # balance += delta
-                #
-                # This avoids the previous bug where:
-                #
-                # balance += delta
-                #
-                # was executed twice.
-                # =================================================
 
                 old_balance = balance
 
+                delta = debit - credit
+
                 balance += delta
-
-                new_balance = balance
-
-                # ------------------------------------------------
-                # BALANCE DEBUG
-                # ------------------------------------------------
-
-                _logger.warning("")
-                _logger.warning(
-                    "========== BALANCE DEBUG ======================="
-                )
-
-                _logger.warning(
-                    "MOVE          = %s",
-                    move.name,
-                )
-
-                _logger.warning(
-                    "AML           = %s",
-                    line.id,
-                )
-
-                _logger.warning(
-                    "OLD BALANCE   = %s",
-                    old_balance,
-                )
-
-                _logger.warning(
-                    "DISPLAY DEBIT = %s",
-                    debit,
-                )
-
-                _logger.warning(
-                    "DISPLAY CREDIT= %s",
-                    credit,
-                )
-
-                _logger.warning(
-                    "DELTA         = %s",
-                    delta,
-                )
-
-                _logger.warning(
-                    "CALCULATION   = %s + (%s - %s)",
-                    old_balance,
-                    debit,
-                    credit,
-                )
-
-                _logger.warning(
-                    "NEW BALANCE   = %s",
-                    new_balance,
-                )
-
-                _logger.warning(
-                    "================================================="
-                )
 
                 # ------------------------------------------------
                 # PRODUCT
                 # ------------------------------------------------
 
                 if line.product_id:
-
                     product = line.product_id.display_name
 
                 elif line.name:
-
                     product = line.name
 
                 elif move.ref:
-
                     product = move.ref
 
                 elif move.payment_reference:
-
                     product = move.payment_reference
 
                 else:
-
                     product = move.name
 
                 # ------------------------------------------------
                 # QUANTITY
                 # ------------------------------------------------
 
-                if line.product_id:
-
-                    quantity = line.quantity or 0.0
-
-                else:
-
-                    quantity = 0.0
+                quantity = (
+                    line.quantity or 0.0
+                    if line.product_id
+                    else 0.0
+                )
 
                 # ------------------------------------------------
                 # UNIT PRICE
                 # ------------------------------------------------
 
-                if line.product_id:
-
-                    unit_price = line.price_unit or 0.0
-
-                else:
-
-                    unit_price = 0.0
+                unit_price = (
+                    line.price_unit or 0.0
+                    if line.product_id
+                    else 0.0
+                )
 
                 # ------------------------------------------------
                 # MOVE KIND
@@ -2763,50 +2197,23 @@ class CustomerStatementReport(models.AbstractModel):
                 total_debit += debit
                 total_credit += credit
 
-                # ------------------------------------------------
-                # TOTALS DEBUG
-                # ------------------------------------------------
+                # =================================================
+                # IMPORTANT DEBUG LOG
+                # =================================================
 
                 _logger.warning(
-                    "TOTALS AFTER LINE | "
-                    "MOVE=%s | AML=%s | "
-                    "TOTAL_QTY=%s | "
-                    "TOTAL_DEBIT=%s | "
-                    "TOTAL_CREDIT=%s",
-                    move.name,
+                    "BALANCE | AML=%s | MOVE=%s | KIND=%s | "
+                    "RAW=%s/%s | REPORT=%s/%s | "
+                    "OLD=%s | DELTA=%s | NEW=%s",
                     line.id,
-                    total_qty,
-                    total_debit,
-                    total_credit,
-                )
-
-                # ------------------------------------------------
-                # REPORT LINE LOG
-                # ------------------------------------------------
-
-                _logger.warning(
-                    "REPORT LINE | "
-                    "AML=%s | DATE=%s | MOVE=%s | "
-                    "TYPE=%s | KIND=%s | "
-                    "ACCOUNT=%s %s | "
-                    "PRODUCT=%s | QTY=%s | UNIT_PRICE=%s | "
-                    "DEBIT=%s | CREDIT=%s | "
-                    "DELTA=%s | OLD_BALANCE=%s | "
-                    "BALANCE=%s",
-                    line.id,
-                    line.date,
                     move.name,
-                    move.move_type,
                     move_kind,
-                    account.code if account else None,
-                    account.name if account else None,
-                    product,
-                    quantity,
-                    unit_price,
+                    raw_debit,
+                    raw_credit,
                     debit,
                     credit,
-                    delta,
                     old_balance,
+                    delta,
                     balance,
                 )
 
@@ -2826,7 +2233,6 @@ class CustomerStatementReport(models.AbstractModel):
                     'credit': credit,
                     'balance': balance,
 
-                    # Extra information for QWeb
                     'account_id': (
                         account.id
                         if account
@@ -2852,7 +2258,6 @@ class CustomerStatementReport(models.AbstractModel):
                     ),
 
                     'move_type': move.move_type,
-
                     'move_kind': move_kind,
 
                     'journal_name': (
@@ -2863,7 +2268,7 @@ class CustomerStatementReport(models.AbstractModel):
                 })
 
             # ==================================================
-            # 10. VALIDATION
+            # 9. FINAL VALIDATION
             # ==================================================
 
             expected_closing = (
@@ -2872,280 +2277,80 @@ class CustomerStatementReport(models.AbstractModel):
                 - total_credit
             )
 
-            closing_difference = (
+            difference = (
                 balance - expected_closing
             )
 
-            _logger.warning("")
-            _logger.warning("=" * 100)
-            _logger.warning(
-                "FINAL PARTNER RESULT"
-            )
-            _logger.warning("=" * 100)
-
-            _logger.warning(
-                "PARTNER = %s",
-                partner.name,
-            )
-
-            _logger.warning(
-                "ORIGINAL SELECTED AML = %s",
-                len(
-                    selected_lines.filtered(
-                        lambda l: l.partner_id == partner
-                    )
-                ),
-            )
-
-            _logger.warning(
-                "INCLUDED AML = %s",
-                len(partner_selected),
-            )
-
-            _logger.warning(
-                "RESULT LINES = %s",
-                len(result_lines),
-            )
-
-            _logger.warning(
-                "TOTAL QTY = %s",
-                total_qty,
-            )
-
-            _logger.warning(
-                "TOTAL DEBIT = %s",
-                total_debit,
-            )
-
-            _logger.warning(
-                "TOTAL CREDIT = %s",
-                total_credit,
-            )
-
-            _logger.warning(
-                "NET MOVEMENT = %s",
-                total_debit - total_credit,
-            )
-
-            _logger.warning(
-                "OPENING = %s",
-                opening_balance,
-            )
-
-            _logger.warning(
-                "EXPECTED CLOSING = %s",
-                expected_closing,
-            )
-
-            _logger.warning(
-                "ACTUAL CLOSING = %s",
-                balance,
-            )
-
-            _logger.warning(
-                "CLOSING DIFFERENCE = %s",
-                closing_difference,
-            )
-
-            # --------------------------------------------------
-            # Closing validation
-            # --------------------------------------------------
-
-            if abs(closing_difference) > 0.01:
+            if abs(difference) > 0.01:
 
                 _logger.error(
-                    "!!!!!!!! CLOSING BALANCE MISMATCH !!!!!!!!"
-                )
-
-                _logger.error(
-                    "EXPECTED=%s | ACTUAL=%s | DIFFERENCE=%s",
+                    "BALANCE ERROR | partner=%s | "
+                    "opening=%s | debit=%s | credit=%s | "
+                    "expected=%s | actual=%s | diff=%s",
+                    partner.id,
+                    opening_balance,
+                    total_debit,
+                    total_credit,
                     expected_closing,
                     balance,
-                    closing_difference,
+                    difference,
                 )
 
             else:
 
                 _logger.warning(
-                    "SUCCESS: CLOSING BALANCE VALIDATED"
+                    "BALANCE OK | partner=%s | "
+                    "opening=%s | debit=%s | credit=%s | "
+                    "closing=%s",
+                    partner.id,
+                    opening_balance,
+                    total_debit,
+                    total_credit,
+                    balance,
                 )
 
             # ==================================================
-            # 11. INVOICE VALIDATION
+            # 10. PAYMENT SUMMARY
             # ==================================================
-
-            _logger.warning("")
-            _logger.warning(
-                "========== INVOICE VALIDATION =================="
-            )
-
-            invoice_moves = (
-                partner_selected
-                .mapped('move_id')
-                .filtered(
-                    lambda m: self._is_invoice_move(m)
-                )
-            )
-
-            for invoice in invoice_moves:
-
-                invoice_rows = partner_selected.filtered(
-                    lambda l: l.move_id == invoice
-                )
-
-                _logger.warning(
-                    "INVOICE | MOVE=%s | ID=%s | "
-                    "TYPE=%s | REPORT_ROWS=%s",
-                    invoice.name,
-                    invoice.id,
-                    invoice.move_type,
-                    len(invoice_rows),
-                )
-
-                for invoice_line in invoice_rows:
-
-                    valid_product = self._is_product_line(
-                        invoice_line
-                    )
-
-                    _logger.warning(
-                        "INVOICE ROW | "
-                        "MOVE=%s | AML=%s | PRODUCT=%s | "
-                        "PRODUCT_VALID=%s | DEBIT=%s | CREDIT=%s",
-                        invoice.name,
-                        invoice_line.id,
-                        invoice_line.product_id.display_name
-                        if invoice_line.product_id
-                        else None,
-                        valid_product,
-                        invoice_line.debit,
-                        invoice_line.credit,
-                    )
-
-                    if not valid_product:
-
-                        _logger.error(
-                            "!!!!!!!! INVOICE FILTER ERROR !!!!!!!! "
-                            "Invoice %s contains non-product AML %s",
-                            invoice.name,
-                            invoice_line.id,
-                        )
-
-            # ==================================================
-            # 12. PAYMENT VALIDATION
-            # ==================================================
-
-            _logger.warning("")
-            _logger.warning(
-                "========== PAYMENT VALIDATION =================="
-            )
 
             payment_moves = (
                 partner_selected
                 .mapped('move_id')
-                .filtered(
-                    lambda m: self._is_payment_move(m)
-                )
+                .filtered(self._is_payment_move)
             )
 
-            for payment in payment_moves:
-
-                payment_rows = partner_selected.filtered(
-                    lambda l: l.move_id == payment
-                )
+            if payment_moves:
 
                 _logger.warning(
-                    "PAYMENT | MOVE=%s | ID=%s | "
-                    "JOURNAL=%s | JOURNAL_TYPE=%s | "
-                    "REPORT_ROWS=%s",
-                    payment.name,
-                    payment.id,
-                    payment.journal_id.name
-                    if payment.journal_id
-                    else None,
-                    payment.journal_id.type
-                    if payment.journal_id
-                    else None,
-                    len(payment_rows),
+                    "PAYMENTS | partner=%s | moves=%s",
+                    partner.id,
+                    [
+                        "%s(%s)" % (
+                            move.name,
+                            move.id,
+                        )
+                        for move in payment_moves
+                    ],
                 )
-
-                for payment_line in payment_rows:
-
-                    _logger.warning(
-                        "PAYMENT ROW | "
-                        "MOVE=%s | AML=%s | "
-                        "ACCOUNT=%s %s | "
-                        "ACCOUNT_TYPE=%s | "
-                        "RAW_DEBIT=%s | RAW_CREDIT=%s | "
-                        "REPORT_DEBIT=%s | REPORT_CREDIT=%s",
-                        payment.name,
-                        payment_line.id,
-                        payment_line.account_id.code
-                        if payment_line.account_id
-                        else None,
-                        payment_line.account_id.name
-                        if payment_line.account_id
-                        else None,
-                        payment_line.account_id.account_type
-                        if payment_line.account_id
-                        else None,
-                        payment_line.debit,
-                        payment_line.credit,
-                        payment_line.credit,
-                        payment_line.debit,
-                    )
 
             # ==================================================
-            # 13. ACCOUNT SUMMARY
+            # 11. INVOICE SUMMARY
             # ==================================================
 
-            result_account_counts = {}
-
-            result_account_amounts = {}
-
-            for row in result_lines:
-
-                code = (
-                    row['account_code']
-                    or 'NO_ACCOUNT'
-                )
-
-                result_account_counts[code] = (
-                    result_account_counts.get(code, 0) + 1
-                )
-
-                if code not in result_account_amounts:
-
-                    result_account_amounts[code] = {
-                        'debit': 0.0,
-                        'credit': 0.0,
-                        'net': 0.0,
-                    }
-
-                result_account_amounts[code]['debit'] += (
-                    row['debit']
-                )
-
-                result_account_amounts[code]['credit'] += (
-                    row['credit']
-                )
-
-                result_account_amounts[code]['net'] += (
-                    row['debit'] - row['credit']
-                )
-
-            _logger.warning(
-                "RESULT ACCOUNT COUNTS = %s",
-                result_account_counts,
+            invoice_moves = (
+                partner_selected
+                .mapped('move_id')
+                .filtered(self._is_invoice_move)
             )
 
             _logger.warning(
-                "RESULT ACCOUNT AMOUNTS = %s",
-                result_account_amounts,
+                "INVOICES | partner=%s | count=%s",
+                partner.id,
+                len(invoice_moves),
             )
 
             # ==================================================
-            # 14. APPEND STATEMENT
+            # 12. STATEMENT
             # ==================================================
 
             statements.append({
@@ -3166,19 +2371,20 @@ class CustomerStatementReport(models.AbstractModel):
                 'accounts': [],
             })
 
-        # ======================================================
-        # 15. GLOBAL VALIDATION
-        # ======================================================
+            _logger.warning(
+                "PARTNER END | %s(%s) | "
+                "rows=%s | closing=%s",
+                partner.name,
+                partner.id,
+                len(result_lines),
+                balance,
+            )
 
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning(
-            "GLOBAL VALIDATION"
-        )
-        _logger.warning("=" * 100)
+        # ======================================================
+        # 13. GLOBAL VALIDATION
+        # ======================================================
 
         total_original = len(selected_lines)
-
         total_included = len(included_lines)
 
         total_report_lines = sum(
@@ -3186,40 +2392,10 @@ class CustomerStatementReport(models.AbstractModel):
             for statement in statements
         )
 
-        total_excluded = len(excluded_lines)
-
-        _logger.warning(
-            "TOTAL ORIGINAL SELECTED AML = %s",
-            total_original,
-        )
-
-        _logger.warning(
-            "TOTAL INCLUDED AML = %s",
-            total_included,
-        )
-
-        _logger.warning(
-            "TOTAL REPORT LINES = %s",
-            total_report_lines,
-        )
-
-        _logger.warning(
-            "TOTAL EXCLUDED AML = %s",
-            total_excluded,
-        )
-
-        # ------------------------------------------------------
-        # Count validation
-        # ------------------------------------------------------
-
         if total_included != total_report_lines:
 
             _logger.error(
-                "!!!!!!!! FINAL INCLUDED ROW COUNT MISMATCH !!!!!!!!"
-            )
-
-            _logger.error(
-                "INCLUDED=%s | REPORT=%s",
+                "ROW COUNT ERROR | included=%s | report=%s",
                 total_included,
                 total_report_lines,
             )
@@ -3227,157 +2403,20 @@ class CustomerStatementReport(models.AbstractModel):
         else:
 
             _logger.warning(
-                "SUCCESS: EVERY INCLUDED AML HAS ONE REPORT ROW"
+                "ROW COUNT OK | rows=%s",
+                total_report_lines,
             )
-
-        # ------------------------------------------------------
-        # Partition validation
-        # ------------------------------------------------------
-
-        partition_difference = (
-            total_original
-            - total_included
-            - total_excluded
-        )
 
         _logger.warning(
-            "PARTITION CHECK | "
-            "ORIGINAL - INCLUDED - EXCLUDED = %s",
-            partition_difference,
-        )
-
-        if partition_difference != 0:
-
-            _logger.error(
-                "!!!!!!!! FILTER PARTITION ERROR !!!!!!!!"
-            )
-
-        else:
-
-            _logger.warning(
-                "SUCCESS: FILTER PARTITION IS COMPLETE"
-            )
-
-        # ======================================================
-        # 16. FINAL DEBUG SUMMARY BY MOVE
-        # ======================================================
-
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning(
-            "FINAL MOVE SUMMARY"
-        )
-        _logger.warning("=" * 100)
-
-        for move in included_lines.mapped(
-            'move_id'
-        ).sorted(
-            key=lambda m: (
-                m.date,
-                m.id,
-            )
-        ):
-
-            move_lines = included_lines.filtered(
-                lambda l: l.move_id == move
-            )
-
-            if self._is_invoice_move(move):
-
-                kind = 'INVOICE/BILL/REFUND'
-
-            elif self._is_payment_move(move):
-
-                kind = 'PAYMENT/CASH/BANK'
-
-            else:
-
-                kind = 'OTHER'
-
-            move_raw_debit = sum(
-                move_lines.mapped('debit')
-            )
-
-            move_raw_credit = sum(
-                move_lines.mapped('credit')
-            )
-
-            _logger.warning(
-                "MOVE SUMMARY | "
-                "MOVE=%s | ID=%s | TYPE=%s | KIND=%s | "
-                "DATE=%s | JOURNAL=%s | "
-                "INCLUDED_LINES=%s | IDS=%s | "
-                "RAW_DEBIT=%s | RAW_CREDIT=%s",
-                move.name,
-                move.id,
-                move.move_type,
-                kind,
-                move.date,
-                move.journal_id.name
-                if move.journal_id
-                else None,
-                len(move_lines),
-                move_lines.ids,
-                move_raw_debit,
-                move_raw_credit,
-            )
-
-        # ======================================================
-        # 17. FINAL INCLUDED AML LIST
-        # ======================================================
-
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning(
-            "FINAL INCLUDED AML DETAILS"
-        )
-        _logger.warning("=" * 100)
-
-        for line in included_lines.sorted(
-            key=lambda l: (
-                l.date,
-                l.move_id.id,
-                l.sequence,
-                l.id,
-            )
-        ):
-
-            self._log_line_details(
-                line,
-                prefix='FINAL INCLUDED',
-            )
-
-        # ======================================================
-        # 18. END
-        # ======================================================
-
-        _logger.warning("")
-        _logger.warning("=" * 100)
-        _logger.warning(
-            "CUSTOMER STATEMENT - DEBUG VERSION END"
-        )
-        _logger.warning("=" * 100)
-
-        _logger.warning(
-            "STATEMENTS = %s",
-            len(statements),
-        )
-
-        _logger.warning(
-            "FINAL TOTAL INCLUDED AML = %s",
+            "CUSTOMER STATEMENT END | "
+            "selected=%s | included=%s | excluded=%s",
+            total_original,
             total_included,
+            len(excluded_lines),
         )
-
-        _logger.warning(
-            "FINAL TOTAL REPORT LINES = %s",
-            total_report_lines,
-        )
-
-        _logger.warning("=" * 100)
-        _logger.warning("")
 
         # ======================================================
-        # 19. REPORT VALUES
+        # 14. REPORT VALUES
         # ======================================================
 
         return {
@@ -3388,9 +2427,6 @@ class CustomerStatementReport(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
-
-
-
 
 
 
