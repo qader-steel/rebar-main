@@ -19,6 +19,7 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
+
 class CustomerStatementReportFromLines(models.AbstractModel):
     _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report From Journal Items'
@@ -76,7 +77,6 @@ class CustomerStatementReportFromLines(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
-
 
     
 

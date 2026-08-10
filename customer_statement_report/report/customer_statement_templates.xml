@@ -28,9 +28,10 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Journal Entry</th>
-                                    <th>Account</th>
-                                    <th>Label</th>
+                                    <th>Transaction</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
                                     <th>Debit</th>
                                     <th>Credit</th>
                                     <th>Balance</th>
@@ -39,19 +40,45 @@
                             <tbody>
                                 <tr t-foreach="stmt_data['lines']" t-as="line">
                                     <td t-esc="line['date']"/>
-                                    <td t-esc="line['move_name']"/>
-                                    <td t-esc="line['account']"/>
-                                    <td t-esc="line['label']"/>
+                                    <td t-esc="line['transaction']"/>
+                                    <td t-esc="line['product']"/>
+                                    <td t-esc="line['quantity']"/>
+                                    <td t-esc="('%.2f' % line['unit_price']) if line['unit_price'] != '' else ''"/>
                                     <td t-esc="'%.2f' % line['debit']"/>
                                     <td t-esc="'%.2f' % line['credit']"/>
-                                    <td t-esc="'%.2f' % line['balance']"/>
+                                    <td t-esc="('%.2f' % line['balance']) if line['balance'] is not None else ''"/>
                                 </tr>
                             </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="3">total</th>
+                                    <th t-esc="'%.3f' % stmt_data['total_qty']"/>
+                                    <th></th>
+                                    <th t-esc="'%.2f' % stmt_data['total_debit']"/>
+                                    <th t-esc="'%.2f' % stmt_data['total_credit']"/>
+                                    <th t-esc="'%.2f' % stmt_data['closing_balance']"/>
+                                </tr>
+                            </tfoot>
                         </table>
 
-                        <div class="text-end mt-3">
-                            <strong>Closing Balance: </strong>
-                            <span t-esc="'%.2f' % stmt_data['closing_balance']"/> IQD
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <strong>Current Balance:</strong>
+                                <span t-esc="'%.2f' % stmt_data['closing_balance']"/> IQD
+                            </div>
+                            <div class="col-6">
+                                <strong>Final Account Balance:</strong>
+                                <span t-esc="'%.2f' % stmt_data['closing_balance']"/> IQD
+                            </div>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <strong>Accountant Name:</strong> _____________
+                            </div>
+                            <div class="col-6">
+                                <strong>Accountant Signature:</strong> _____________
+                            </div>
                         </div>
                     </div>
                 </t>
