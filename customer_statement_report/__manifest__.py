@@ -13,7 +13,7 @@
     ],
     'assets': {
         'web.report_assets_common': [
-            'your_module/static/src/css/statement_report.css',
+            'customer_statement_report/static/src/css/statement_report.css',
         ],
     },
     'installable': True,

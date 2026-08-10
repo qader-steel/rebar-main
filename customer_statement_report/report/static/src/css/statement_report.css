@@ -1,32 +1,44 @@
+* { box-sizing: border-box; }
 
-            * { box-sizing: border-box; }
+.page { font-size: 6pt; line-height: 1.1; }
 
-            .page { font-size: 6pt; line-height: 1.1; }
+table.statement-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 5pt !important;
+}
 
-            table.statement-table {
-                width: 100%;
-                table-layout: fixed;
-                border-collapse: collapse;
-                font-size: 5pt;
-            }
+.statement-table th,
+.statement-table td {
+    padding: 1px 2px !important;
+    font-size: 5pt !important;
+    line-height: 1.05 !important;
+    white-space: normal !important;
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+}
 
-            .statement-table th,
-            .statement-table td {
-                padding: 1px 2px;
-                font-size: 5pt;
-                line-height: 1.05;
-                white-space: normal;
-                word-break: break-all;
-                overflow-wrap: anywhere;
-                min-width: 0;
-                max-width: 0; /* forces table-layout:fixed to respect % width in wkhtmltopdf */
-            }
+.statement-table th:nth-child(1), .statement-table td:nth-child(1) { width: 7% !important; }
+.statement-table th:nth-child(2), .statement-table td:nth-child(2) { width: 12% !important; }
+.statement-table th:nth-child(3), .statement-table td:nth-child(3) { width: 24% !important; }
+.statement-table th:nth-child(4), .statement-table td:nth-child(4) { width: 8% !important; }
+.statement-table th:nth-child(5), .statement-table td:nth-child(5) { width: 10% !important; }
+.statement-table th:nth-child(6), .statement-table td:nth-child(6) { width: 12% !important; }
+.statement-table th:nth-child(7), .statement-table td:nth-child(7) { width: 12% !important; }
+.statement-table th:nth-child(8), .statement-table td:nth-child(8) { width: 15% !important; }
 
-            .statement-table th:nth-child(1), .statement-table td:nth-child(1) { width: 7%; }
-            .statement-table th:nth-child(2), .statement-table td:nth-child(2) { width: 12%; }
-            .statement-table th:nth-child(3), .statement-table td:nth-child(3) { width: 24%; }
-            .statement-table th:nth-child(4), .statement-table td:nth-child(4) { width: 8%; }
-            .statement-table th:nth-child(5), .statement-table td:nth-child(5) { width: 10%; }
-            .statement-table th:nth-child(6), .statement-table td:nth-child(6) { width: 12%; }
-            .statement-table th:nth-child(7), .statement-table td:nth-child(7) { width: 12%; }
-            .statement-table th:nth-child(8), .statement-table td:nth-child(8) { width: 15%; }
+.statement-total table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+}
+
+.statement-total th,
+.statement-total td {
+    font-size: 5pt !important;
+    padding: 2px 1px !important;
+    word-break: break-all !important;
+}
