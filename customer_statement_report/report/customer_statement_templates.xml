@@ -302,376 +302,419 @@
 
         <style>
 
-            /* =====================================================
-               STATEMENT WRAPPER
-               ===================================================== */
+            /* =========================================================
+            REPORT BASE
+            ========================================================= */
 
             #statement-wrapper {
                 width: 100%;
-                font-size: 6pt;
-                line-height: 1.05;
+                font-size: 5.5pt;
+                line-height: 1.0;
             }
-
-
-            /* =====================================================
-               TITLE
-               ===================================================== */
 
             #statement-wrapper .statement-title {
-                font-size: 12pt;
-                line-height: 1.1;
-                margin: 0 0 5px 0;
+                font-size: 11pt;
+                line-height: 1.0;
+                margin: 0 0 4px 0;
             }
-
-
-            /* =====================================================
-               STATEMENT INFO
-               ===================================================== */
 
             #statement-wrapper .statement-info {
                 width: 100%;
-                font-size: 6pt;
-                line-height: 1.05;
-                margin-bottom: 5px;
+                font-size: 5.5pt;
+                line-height: 1.0;
+                margin-bottom: 4px;
             }
 
             #statement-wrapper .statement-info .col-3 {
-                padding-left: 2px;
-                padding-right: 2px;
+                padding-left: 1px;
+                padding-right: 1px;
             }
 
 
-            /* =====================================================
-               MAIN TABLE
-               ===================================================== */
+            /* =========================================================
+            MAIN TABLE
+            ========================================================= */
 
             #statement-wrapper table.statement-table {
+                width: 100% !important;
 
-                width: 100%;
+                table-layout: fixed !important;
 
-                table-layout: fixed;
+                border-collapse: collapse !important;
 
-                border-collapse: collapse;
+                margin: 0 !important;
+                padding: 0 !important;
 
-                font-size: 6pt;
+                font-size: 5pt !important;
+                line-height: 0.95 !important;
 
-                line-height: 1.0;
+                box-sizing: border-box !important;
 
-                margin: 0 0 5px 0;
-
+                word-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               ALL CELLS
-               ===================================================== */
+            /* =========================================================
+            ALL TABLE CELLS
+            ========================================================= */
 
             #statement-wrapper table.statement-table th,
             #statement-wrapper table.statement-table td {
 
-                font-size: 6pt;
+                box-sizing: border-box !important;
 
-                line-height: 1.0;
+                font-size: 5pt !important;
 
-                padding: 1px 2px;
+                line-height: 0.95 !important;
 
-                vertical-align: middle;
+                padding: 1px 1px !important;
 
-                white-space: normal;
+                margin: 0 !important;
 
-                word-wrap: break-word;
+                vertical-align: middle !important;
 
-                overflow: hidden;
+                white-space: normal !important;
 
+                word-wrap: break-word !important;
+
+                overflow-wrap: break-word !important;
+
+                overflow: hidden !important;
+
+                max-width: 0 !important;
             }
 
 
-            /* =====================================================
-               HEADER
-               ===================================================== */
+            /* =========================================================
+            HEADER
+            ========================================================= */
 
             #statement-wrapper table.statement-table thead th {
 
-                font-size: 6pt;
+                font-size: 5pt !important;
 
-                font-weight: bold;
+                line-height: 0.95 !important;
 
-                text-align: center;
+                font-weight: bold !important;
 
-                white-space: normal;
+                text-align: center !important;
 
-                word-wrap: break-word;
+                white-space: normal !important;
 
+                word-wrap: break-word !important;
+
+                overflow: hidden !important;
             }
 
 
-            /* =====================================================
-               COLUMN 1 - DATE
-               ===================================================== */
+            /* =========================================================
+            COLUMN WIDTHS
+            
+            IMPORTANT:
+            TOTAL = 94%
+            Leave 6% safety margin for wkhtmltopdf.
+            ========================================================= */
+
+
+            /* DATE */
 
             #statement-wrapper table.statement-table th:nth-child(1),
             #statement-wrapper table.statement-table td:nth-child(1) {
 
-                width: 7%;
+                width: 7% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.7pt !important;
 
+                max-width: 7% !important;
+
+                overflow: hidden !important;
+
+                word-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               COLUMN 2 - TRANSACTION
-               ===================================================== */
+            /* TRANSACTION */
 
             #statement-wrapper table.statement-table th:nth-child(2),
             #statement-wrapper table.statement-table td:nth-child(2) {
 
-                width: 12%;
+                width: 11% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                word-wrap: break-word;
+                max-width: 11% !important;
 
+                overflow: hidden !important;
+
+                word-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               COLUMN 3 - PRODUCT / DESCRIPTION
-               ===================================================== */
+            /* PRODUCT / DESCRIPTION */
 
             #statement-wrapper table.statement-table th:nth-child(3),
             #statement-wrapper table.statement-table td:nth-child(3) {
 
-                width: 24%;
+                width: 25% !important;
 
-                font-size: 6pt;
+                font-size: 5pt !important;
 
-                word-wrap: break-word;
+                max-width: 25% !important;
 
+                overflow: hidden !important;
+
+                word-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               COLUMN 4 - QUANTITY
-               ===================================================== */
+            /* QUANTITY */
 
             #statement-wrapper table.statement-table th:nth-child(4),
             #statement-wrapper table.statement-table td:nth-child(4) {
 
-                width: 8%;
+                width: 8% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                text-align: right;
+                max-width: 8% !important;
 
+                text-align: right !important;
+
+                overflow: hidden !important;
             }
 
 
-            /* =====================================================
-               COLUMN 5 - UNIT PRICE
-               ===================================================== */
+            /* UNIT PRICE */
 
             #statement-wrapper table.statement-table th:nth-child(5),
             #statement-wrapper table.statement-table td:nth-child(5) {
 
-                width: 10%;
+                width: 10% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                text-align: right;
+                max-width: 10% !important;
 
+                text-align: right !important;
+
+                overflow: hidden !important;
             }
 
 
-            /* =====================================================
-               COLUMN 6 - DEBIT
-               ===================================================== */
+            /* DEBIT */
 
             #statement-wrapper table.statement-table th:nth-child(6),
             #statement-wrapper table.statement-table td:nth-child(6) {
 
-                width: 12%;
+                width: 11% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                text-align: right;
+                max-width: 11% !important;
 
+                text-align: right !important;
+
+                overflow: hidden !important;
             }
 
 
-            /* =====================================================
-               COLUMN 7 - CREDIT
-               ===================================================== */
+            /* CREDIT */
 
             #statement-wrapper table.statement-table th:nth-child(7),
             #statement-wrapper table.statement-table td:nth-child(7) {
 
-                width: 12%;
+                width: 11% !important;
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                text-align: right;
+                max-width: 11% !important;
 
+                text-align: right !important;
+
+                overflow: hidden !important;
             }
 
 
-            /* =====================================================
-               COLUMN 8 - BALANCE
-               ===================================================== */
+            /* BALANCE */
 
             #statement-wrapper table.statement-table th:nth-child(8),
             #statement-wrapper table.statement-table td:nth-child(8) {
 
-                width: 15%;
+                width: 11% !important;
 
-                font-size: 5.2pt;
+                font-size: 4.2pt !important;
 
-                text-align: right;
+                max-width: 11% !important;
 
-                white-space: normal;
+                min-width: 0 !important;
 
-                word-wrap: break-word;
+                text-align: right !important;
 
-                overflow: hidden;
+                overflow: hidden !important;
 
+                white-space: normal !important;
+
+                word-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               NUMERIC CELLS
-               ===================================================== */
+            /* =========================================================
+            FORCE NUMERIC CONTENT TO STAY INSIDE CELL
+            ========================================================= */
 
-            #statement-wrapper table.statement-table .text-end {
+            #statement-wrapper table.statement-table td span,
+            #statement-wrapper table.statement-table td strong {
 
-                text-align: right;
+                display: inline !important;
 
-                white-space: normal;
+                max-width: 100% !important;
 
-                word-wrap: break-word;
+                font-size: 4.5pt !important;
 
+                line-height: 0.95 !important;
+
+                white-space: normal !important;
+
+                word-wrap: break-word !important;
+
+                overflow-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               BALANCE NUMBER
-               ===================================================== */
+            /* BALANCE NUMBER */
 
             #statement-wrapper table.statement-table td:nth-child(8) strong {
 
-                font-size: 5.2pt;
+                font-size: 4.2pt !important;
 
-                font-weight: bold;
+                font-weight: bold !important;
 
-                white-space: normal;
+                white-space: normal !important;
 
-                word-wrap: break-word;
+                word-wrap: break-word !important;
 
+                overflow-wrap: break-word !important;
             }
 
 
-            /* =====================================================
-               TOTAL
-               ===================================================== */
+            /* =========================================================
+            NUMERIC CELLS
+            ========================================================= */
+
+            #statement-wrapper table.statement-table .text-end {
+
+                text-align: right !important;
+
+                white-space: normal !important;
+
+                word-wrap: break-word !important;
+
+                overflow-wrap: break-word !important;
+
+                max-width: 0 !important;
+            }
+
+
+            /* =========================================================
+            TOTAL
+            ========================================================= */
 
             #statement-wrapper .statement-total {
 
-                width: 100%;
+                width: 100% !important;
 
-                font-size: 6pt;
+                font-size: 5pt !important;
 
-                margin-top: 3px;
+                margin-top: 2px !important;
 
-                margin-bottom: 5px;
+                margin-bottom: 4px !important;
 
-                page-break-inside: avoid;
-
+                page-break-inside: avoid !important;
             }
 
 
             #statement-wrapper .statement-total table {
 
-                width: 100%;
+                width: 100% !important;
 
-                table-layout: fixed;
+                table-layout: fixed !important;
 
-                border-collapse: collapse;
+                border-collapse: collapse !important;
 
+                box-sizing: border-box !important;
             }
 
 
             #statement-wrapper .statement-total th,
             #statement-wrapper .statement-total td {
 
-                font-size: 5.5pt;
+                font-size: 4.5pt !important;
 
-                padding: 2px;
+                line-height: 0.95 !important;
 
-                line-height: 1.0;
+                padding: 1px !important;
 
-                font-weight: bold;
+                font-weight: bold !important;
 
-                white-space: normal;
+                white-space: normal !important;
 
-                word-wrap: break-word;
+                word-wrap: break-word !important;
 
-                overflow: hidden;
+                overflow: hidden !important;
 
+                box-sizing: border-box !important;
             }
 
 
-            /* =====================================================
-               FINAL BALANCE
-               ===================================================== */
+            /* =========================================================
+            FINAL BALANCE
+            ========================================================= */
 
             #statement-wrapper .statement-balance {
 
-                width: 100%;
+                width: 100% !important;
 
-                font-size: 6pt;
+                font-size: 5pt !important;
 
-                line-height: 1.05;
+                line-height: 1.0 !important;
 
-                margin-top: 5px;
+                margin-top: 4px !important;
 
-                page-break-inside: avoid;
-
+                page-break-inside: avoid !important;
             }
 
 
             #statement-wrapper .statement-balance .col-6 {
 
-                padding-left: 2px;
+                padding-left: 1px !important;
 
-                padding-right: 2px;
-
+                padding-right: 1px !important;
             }
 
 
-            /* =====================================================
-               SIGNATURE
-               ===================================================== */
+            /* =========================================================
+            SIGNATURE
+            ========================================================= */
 
             #statement-wrapper .statement-signature {
 
-                width: 100%;
+                width: 100% !important;
 
-                font-size: 6pt;
+                font-size: 5pt !important;
 
-                line-height: 1.05;
+                line-height: 1.0 !important;
 
-                margin-top: 8px;
+                margin-top: 6px !important;
 
-                page-break-inside: avoid;
-
+                page-break-inside: avoid !important;
             }
 
 
             #statement-wrapper .statement-signature .col-6 {
 
-                padding-left: 2px;
+                padding-left: 1px !important;
 
-                padding-right: 2px;
-
+                padding-right: 1px !important;
             }
 
         </style>
@@ -766,9 +809,7 @@
                     <!-- =================================================
                          MAIN TABLE
                          ================================================= -->
-<div style="font-size: 30px !important; color: red !important;">
-    TEST CSS 123
-</div>
+
                     <table class="table table-sm table-bordered statement-table">
 
 
