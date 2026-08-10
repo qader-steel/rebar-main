@@ -2144,8 +2144,25 @@ class CustomerStatementReport(models.AbstractModel):
                 move = line.move_id
                 account = line.account_id
 
-                debit = line.debit or 0.0
-                credit = line.credit or 0.0
+                raw_debit = line.debit or 0.0
+                raw_credit = line.credit or 0.0
+
+                if self._is_payment_move(move):
+                    # Odoo stores the payment correctly:
+                    # Receivable credit reduces customer debt.
+                    #
+                    # But this report represents customer balance
+                    # using the invoice Sales lines, where:
+                    #   Credit = increase in customer debt
+                    # Therefore payment must be displayed with reversed
+                    # Debit/Credit columns so it reduces the negative balance.
+                    debit = raw_credit
+                    credit = raw_debit
+                else:
+                    # Invoice product lines are Sales Account lines.
+                    # Keep their accounting orientation as displayed.
+                    debit = raw_debit
+                    credit = raw_credit
 
                 # ------------------------------------------------
                 # PRODUCT
