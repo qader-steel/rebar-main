@@ -29,7 +29,7 @@
                                 <tr>
                                     <th>Date</th>
                                     <th>Transaction</th>
-                                    <th>Product</th>
+                                    <th>Product / Description</th>
                                     <th>Quantity</th>
                                     <th>Unit Price</th>
                                     <th>Debit</th>
@@ -37,26 +37,70 @@
                                     <th>Balance</th>
                                 </tr>
                             </thead>
+
                             <tbody>
+
                                 <tr t-foreach="stmt_data['lines']" t-as="line">
-                                    <td t-esc="line['date']"/>
-                                    <td t-esc="line['transaction']"/>
-                                    <td t-esc="line['product']"/>
-                                    <td t-esc="line['quantity']"/>
-                                    <td t-esc="('%.2f' % line['unit_price']) if line['unit_price'] != '' else ''"/>
-                                    <td t-esc="'%.2f' % line['debit']"/>
-                                    <td t-esc="'%.2f' % line['credit']"/>
-                                    <td t-esc="('%.2f' % line['balance']) if line['balance'] is not None else ''"/>
+
+                                    <td>
+                                        <span t-esc="line['date']"/>
+                                    </td>
+
+                                    <td>
+                                        <span t-esc="line['transaction']"/>
+                                    </td>
+
+                                    <td>
+                                        <span t-esc="line['product'] or line['label']"/>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <span t-if="line['quantity'] != ''"
+                                            t-esc="'%.2f' % line['quantity']"/>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <span t-if="line['unit_price'] != ''"
+                                            t-esc="'%.2f' % line['unit_price']"/>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <span t-esc="'%.2f' % line['debit']"/>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <span t-esc="'%.2f' % line['credit']"/>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <span t-esc="'%.2f' % line['balance']"/>
+                                    </td>
+
                                 </tr>
+
                             </tbody>
+
                             <tfoot>
                                 <tr>
-                                    <th colspan="3">total</th>
-                                    <th t-esc="'%.3f' % stmt_data['total_qty']"/>
+                                    <th colspan="3">Total</th>
+
+                                    <th class="text-end">
+                                        <span t-esc="'%.2f' % stmt_data['total_qty']"/>
+                                    </th>
+
                                     <th></th>
-                                    <th t-esc="'%.2f' % stmt_data['total_debit']"/>
-                                    <th t-esc="'%.2f' % stmt_data['total_credit']"/>
-                                    <th t-esc="'%.2f' % stmt_data['closing_balance']"/>
+
+                                    <th class="text-end">
+                                        <span t-esc="'%.2f' % stmt_data['total_debit']"/>
+                                    </th>
+
+                                    <th class="text-end">
+                                        <span t-esc="'%.2f' % stmt_data['total_credit']"/>
+                                    </th>
+
+                                    <th class="text-end">
+                                        <span t-esc="'%.2f' % stmt_data['closing_balance']"/>
+                                    </th>
                                 </tr>
                             </tfoot>
                         </table>
