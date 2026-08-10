@@ -19,14 +19,12 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-
 class CustomerStatementReportFromLines(models.AbstractModel):
     _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report From Journal Items'
 
     def _get_report_values(self, docids, data=None):
         lines = self.env['account.move.line'].browse(docids)
-        # فقط سطور العملاء (Receivable) المرحّلة
         lines = lines.filtered(
             lambda l: l.partner_id and l.parent_state == 'posted'
             and l.account_id.account_type in ('asset_receivable', 'liability_payable')
@@ -50,23 +48,65 @@ class CustomerStatementReportFromLines(models.AbstractModel):
             balance = opening_balance
 
             result_lines = []
+            total_qty = 0.0
+            total_debit = 0.0
+            total_credit = 0.0
+
             for l in partner_lines:
-                balance += l.balance
-                result_lines.append({
-                    'date': l.date,
-                    'move_name': l.move_id.name,
-                    'account': l.account_id.display_name,
-                    'label': l.name or '',
-                    'debit': l.debit,
-                    'credit': l.credit,
-                    'balance': balance,
-                })
+                move = l.move_id
+                invoice_lines = move.invoice_line_ids.filtered(
+                    lambda il: not il.display_type and il.product_id
+                ) if move.move_type in ('out_invoice', 'out_refund') else self.env['account.move.line']
+
+                if invoice_lines:
+                    for il in invoice_lines:
+                        result_lines.append({
+                            'date': l.date,
+                            'transaction': move.name,
+                            'product': il.product_id.display_name,
+                            'quantity': il.quantity,
+                            'unit_price': il.price_unit,
+                            'debit': 0.0,
+                            'credit': 0.0,
+                            'balance': None,
+                        })
+                    balance += l.balance
+                    total_debit += l.debit
+                    total_credit += l.credit
+                    total_qty += sum(invoice_lines.mapped('quantity'))
+                    result_lines.append({
+                        'date': l.date,
+                        'transaction': move.name,
+                        'product': '',
+                        'quantity': '',
+                        'unit_price': '',
+                        'debit': l.debit,
+                        'credit': l.credit,
+                        'balance': balance,
+                    })
+                else:
+                    balance += l.balance
+                    total_debit += l.debit
+                    total_credit += l.credit
+                    result_lines.append({
+                        'date': l.date,
+                        'transaction': move.name,
+                        'product': '',
+                        'quantity': '',
+                        'unit_price': '',
+                        'debit': l.debit,
+                        'credit': l.credit,
+                        'balance': balance,
+                    })
 
             statements.append({
                 'partner': partner,
                 'opening_balance': opening_balance,
                 'lines': result_lines,
                 'closing_balance': balance,
+                'total_qty': total_qty,
+                'total_debit': total_debit,
+                'total_credit': total_credit,
             })
 
         return {
@@ -77,7 +117,6 @@ class CustomerStatementReportFromLines(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
-
     
 
 class CustomerStatementWizard(models.TransientModel):
