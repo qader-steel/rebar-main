@@ -294,19 +294,402 @@
     </template> -->
 
 
+
+
 <template id="from_lines">
 
     <t t-call="web.html_container">
 
+        <style>
+
+            /* =====================================================
+               STATEMENT WRAPPER
+               ===================================================== */
+
+            #statement-wrapper {
+                width: 100%;
+                font-size: 6pt;
+                line-height: 1.05;
+            }
+
+
+            /* =====================================================
+               TITLE
+               ===================================================== */
+
+            #statement-wrapper .statement-title {
+                font-size: 12pt;
+                line-height: 1.1;
+                margin: 0 0 5px 0;
+            }
+
+
+            /* =====================================================
+               STATEMENT INFO
+               ===================================================== */
+
+            #statement-wrapper .statement-info {
+                width: 100%;
+                font-size: 6pt;
+                line-height: 1.05;
+                margin-bottom: 5px;
+            }
+
+            #statement-wrapper .statement-info .col-3 {
+                padding-left: 2px;
+                padding-right: 2px;
+            }
+
+
+            /* =====================================================
+               MAIN TABLE
+               ===================================================== */
+
+            #statement-wrapper table.statement-table {
+
+                width: 100%;
+
+                table-layout: fixed;
+
+                border-collapse: collapse;
+
+                font-size: 6pt;
+
+                line-height: 1.0;
+
+                margin: 0 0 5px 0;
+
+            }
+
+
+            /* =====================================================
+               ALL CELLS
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th,
+            #statement-wrapper table.statement-table td {
+
+                font-size: 6pt;
+
+                line-height: 1.0;
+
+                padding: 1px 2px;
+
+                vertical-align: middle;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+                overflow: hidden;
+
+            }
+
+
+            /* =====================================================
+               HEADER
+               ===================================================== */
+
+            #statement-wrapper table.statement-table thead th {
+
+                font-size: 6pt;
+
+                font-weight: bold;
+
+                text-align: center;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 1 - DATE
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(1),
+            #statement-wrapper table.statement-table td:nth-child(1) {
+
+                width: 7%;
+
+                font-size: 5.5pt;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 2 - TRANSACTION
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(2),
+            #statement-wrapper table.statement-table td:nth-child(2) {
+
+                width: 12%;
+
+                font-size: 5.5pt;
+
+                word-wrap: break-word;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 3 - PRODUCT / DESCRIPTION
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(3),
+            #statement-wrapper table.statement-table td:nth-child(3) {
+
+                width: 24%;
+
+                font-size: 6pt;
+
+                word-wrap: break-word;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 4 - QUANTITY
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(4),
+            #statement-wrapper table.statement-table td:nth-child(4) {
+
+                width: 8%;
+
+                font-size: 5.5pt;
+
+                text-align: right;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 5 - UNIT PRICE
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(5),
+            #statement-wrapper table.statement-table td:nth-child(5) {
+
+                width: 10%;
+
+                font-size: 5.5pt;
+
+                text-align: right;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 6 - DEBIT
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(6),
+            #statement-wrapper table.statement-table td:nth-child(6) {
+
+                width: 12%;
+
+                font-size: 5.5pt;
+
+                text-align: right;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 7 - CREDIT
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(7),
+            #statement-wrapper table.statement-table td:nth-child(7) {
+
+                width: 12%;
+
+                font-size: 5.5pt;
+
+                text-align: right;
+
+            }
+
+
+            /* =====================================================
+               COLUMN 8 - BALANCE
+               ===================================================== */
+
+            #statement-wrapper table.statement-table th:nth-child(8),
+            #statement-wrapper table.statement-table td:nth-child(8) {
+
+                width: 15%;
+
+                font-size: 5.2pt;
+
+                text-align: right;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+                overflow: hidden;
+
+            }
+
+
+            /* =====================================================
+               NUMERIC CELLS
+               ===================================================== */
+
+            #statement-wrapper table.statement-table .text-end {
+
+                text-align: right;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+            }
+
+
+            /* =====================================================
+               BALANCE NUMBER
+               ===================================================== */
+
+            #statement-wrapper table.statement-table td:nth-child(8) strong {
+
+                font-size: 5.2pt;
+
+                font-weight: bold;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+            }
+
+
+            /* =====================================================
+               TOTAL
+               ===================================================== */
+
+            #statement-wrapper .statement-total {
+
+                width: 100%;
+
+                font-size: 6pt;
+
+                margin-top: 3px;
+
+                margin-bottom: 5px;
+
+                page-break-inside: avoid;
+
+            }
+
+
+            #statement-wrapper .statement-total table {
+
+                width: 100%;
+
+                table-layout: fixed;
+
+                border-collapse: collapse;
+
+            }
+
+
+            #statement-wrapper .statement-total th,
+            #statement-wrapper .statement-total td {
+
+                font-size: 5.5pt;
+
+                padding: 2px;
+
+                line-height: 1.0;
+
+                font-weight: bold;
+
+                white-space: normal;
+
+                word-wrap: break-word;
+
+                overflow: hidden;
+
+            }
+
+
+            /* =====================================================
+               FINAL BALANCE
+               ===================================================== */
+
+            #statement-wrapper .statement-balance {
+
+                width: 100%;
+
+                font-size: 6pt;
+
+                line-height: 1.05;
+
+                margin-top: 5px;
+
+                page-break-inside: avoid;
+
+            }
+
+
+            #statement-wrapper .statement-balance .col-6 {
+
+                padding-left: 2px;
+
+                padding-right: 2px;
+
+            }
+
+
+            /* =====================================================
+               SIGNATURE
+               ===================================================== */
+
+            #statement-wrapper .statement-signature {
+
+                width: 100%;
+
+                font-size: 6pt;
+
+                line-height: 1.05;
+
+                margin-top: 8px;
+
+                page-break-inside: avoid;
+
+            }
+
+
+            #statement-wrapper .statement-signature .col-6 {
+
+                padding-left: 2px;
+
+                padding-right: 2px;
+
+            }
+
+        </style>
+
+
         <!-- =========================================================
-             LOOP THROUGH STATEMENTS
+             STATEMENTS
              ========================================================= -->
 
         <t t-foreach="statements" t-as="stmt_data">
 
             <t t-call="web.external_layout">
 
-                <div class="page">
+                <!-- IMPORTANT:
+                     ID is directly on the page wrapper
+                -->
+
+                <div id="statement-wrapper" class="page">
 
 
                     <!-- =================================================
@@ -321,14 +704,16 @@
 
 
                     <!-- =================================================
-                         STATEMENT INFORMATION
+                         INFORMATION
                          ================================================= -->
 
                     <div class="row statement-info">
 
                         <div class="col-3">
 
-                            <strong>Partner Name:</strong>
+                            <strong>
+                                Partner Name:
+                            </strong>
 
                             <span t-esc="stmt_data['partner'].name"/>
 
@@ -337,7 +722,9 @@
 
                         <div class="col-3">
 
-                            <strong>Initial Balance:</strong>
+                            <strong>
+                                Initial Balance:
+                            </strong>
 
                             <span>
 
@@ -354,7 +741,9 @@
 
                         <div class="col-3">
 
-                            <strong>From:</strong>
+                            <strong>
+                                From:
+                            </strong>
 
                             <span t-esc="date_from"/>
 
@@ -363,7 +752,9 @@
 
                         <div class="col-3">
 
-                            <strong>To:</strong>
+                            <strong>
+                                To:
+                            </strong>
 
                             <span t-esc="date_to"/>
 
@@ -378,34 +769,6 @@
 
                     <table class="table table-sm table-bordered statement-table">
 
-                        <!-- =================================================
-                             FIXED COLUMN DEFINITIONS
-                             ================================================= -->
-
-                        <colgroup>
-
-                            <col class="col-date"/>
-
-                            <col class="col-trans"/>
-
-                            <col class="col-desc"/>
-
-                            <col class="col-qty"/>
-
-                            <col class="col-price"/>
-
-                            <col class="col-debit"/>
-
-                            <col class="col-credit"/>
-
-                            <col class="col-balance"/>
-
-                        </colgroup>
-
-
-                        <!-- =================================================
-                             HEADER
-                             ================================================= -->
 
                         <thead>
 
@@ -423,23 +786,23 @@
                                     Product / Description
                                 </th>
 
-                                <th class="text-end">
+                                <th>
                                     Quantity
                                 </th>
 
-                                <th class="text-end">
+                                <th>
                                     Unit Price
                                 </th>
 
-                                <th class="text-end">
+                                <th>
                                     Debit
                                 </th>
 
-                                <th class="text-end">
+                                <th>
                                     Credit
                                 </th>
 
-                                <th class="text-end">
+                                <th>
                                     Balance
                                 </th>
 
@@ -447,10 +810,6 @@
 
                         </thead>
 
-
-                        <!-- =================================================
-                             BODY
-                             ================================================= -->
 
                         <tbody>
 
@@ -479,7 +838,7 @@
 
                                     <!-- PRODUCT -->
 
-                                    <td style="white-space: normal !important;">
+                                    <td>
 
                                         <span t-esc="line['product']"/>
 
@@ -585,19 +944,6 @@
                     <div class="statement-total">
 
                         <table class="table table-sm table-bordered">
-
-                            <colgroup>
-
-                                <col style="width:7%;"/>
-                                <col style="width:12%;"/>
-                                <col style="width:24%;"/>
-                                <col style="width:8%;"/>
-                                <col style="width:10%;"/>
-                                <col style="width:12%;"/>
-                                <col style="width:12%;"/>
-                                <col style="width:15%;"/>
-
-                            </colgroup>
 
                             <tr>
 
@@ -712,7 +1058,7 @@
                                 Accountant Name:
                             </strong>
 
-                            ______________________________
+                            __________________________
 
                         </div>
 
@@ -723,7 +1069,7 @@
                                 Accountant Signature:
                             </strong>
 
-                            ______________________________
+                            __________________________
 
                         </div>
 
@@ -736,7 +1082,7 @@
 
 
             <!-- =========================================================
-                 SEPARATE STATEMENTS
+                 PAGE BREAK BETWEEN STATEMENTS
                  ========================================================= -->
 
             <t t-if="not stmt_data_last">
@@ -750,6 +1096,15 @@
     </t>
 
 </template>
+
+
+
+
+
+
+
+
+
 
 
 
