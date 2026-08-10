@@ -1137,75 +1137,85 @@ _logger = logging.getLogger(__name__)
 
 
 class CustomerStatementReport(models.AbstractModel):
-
     _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report'
-
-    # ==============================================================
-    # Helper: get partner receivable/payable lines
-    # ==============================================================
-
-    def _get_partner_account_lines(self, lines):
-        """
-        Return only the actual partner receivable/payable lines.
-
-        This is important because a journal entry can contain:
-            100100 Cash
-            100201 Accounts Receivable
-
-        We must not show both as customer transactions.
-        Only the receivable/payable line affects the customer balance.
-        """
-        return lines.filtered(
-            lambda l:
-                l.account_id
-                and l.account_id.account_type in (
-                    'asset_receivable',
-                    'liability_payable',
-                )
-        )
-
-    # ==============================================================
-    # Main Report
-    # ==============================================================
 
     @api.model
     def _get_report_values(self, docids, data=None):
 
         _logger.warning("")
-        _logger.warning("==========================================================")
-        _logger.warning(" CUSTOMER STATEMENT FINAL VERSION START")
-        _logger.warning("==========================================================")
-
-        AccountMoveLine = self.env['account.move.line']
+        _logger.warning("=" * 80)
+        _logger.warning("CUSTOMER STATEMENT - RAW AML VERSION START")
+        _logger.warning("=" * 80)
 
         # ==========================================================
-        # 1. Selected lines
+        # 1. GET EXACTLY THE SELECTED ACCOUNT MOVE LINES
         # ==========================================================
 
-        all_selected = AccountMoveLine.browse(docids).exists()
+        selected_lines = self.env['account.move.line'].browse(docids).exists()
 
         _logger.warning(
             "DOCIDS COUNT = %s | IDS = %s",
-            len(all_selected),
-            all_selected.ids,
+            len(selected_lines),
+            selected_lines.ids,
         )
 
-        if not all_selected:
+        if not selected_lines:
+            _logger.warning("NO SELECTED ACCOUNT MOVE LINES")
+
             return {
                 'doc_ids': docids,
                 'doc_model': 'account.move.line',
-                'docs': all_selected,
+                'docs': selected_lines,
                 'statements': [],
                 'date_from': False,
                 'date_to': False,
             }
 
         # ==========================================================
-        # 2. Partners
+        # 2. SHOW EVERY SELECTED AML
+        #
+        # IMPORTANT:
+        # DO NOT FILTER ONLY RECEIVABLE/PAYABLE.
+        #
+        # The user's UI contains:
+        #
+        # 100100 Main Cash Account      = 2
+        # 100201 Accounts Receivable    = 19
+        # 400101 Sales Account          = 34
+        #
+        # TOTAL = 55
+        #
+        # Therefore we must preserve ALL 55 lines.
         # ==========================================================
 
-        partners = all_selected.mapped('partner_id')
+        for line in selected_lines.sorted(
+            key=lambda l: (l.date, l.move_id.id, l.sequence, l.id)
+        ):
+            _logger.warning(
+                "SELECTED AML | id=%s | date=%s | move=%s | "
+                "account=%s %s | partner=%s | "
+                "display_type=%s | debit=%s | credit=%s | "
+                "product=%s | qty=%s | price=%s",
+                line.id,
+                line.date,
+                line.move_id.name,
+                line.account_id.code if line.account_id else None,
+                line.account_id.name if line.account_id else None,
+                line.partner_id.name if line.partner_id else None,
+                line.display_type,
+                line.debit,
+                line.credit,
+                line.product_id.display_name if line.product_id else None,
+                line.quantity,
+                line.price_unit,
+            )
+
+        # ==========================================================
+        # 3. PARTNERS
+        # ==========================================================
+
+        partners = selected_lines.mapped('partner_id')
 
         _logger.warning(
             "PARTNERS = %s",
@@ -1213,36 +1223,38 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
         if not partners:
+            _logger.warning("NO PARTNER FOUND")
+
             return {
                 'doc_ids': docids,
                 'doc_model': 'account.move.line',
-                'docs': all_selected,
+                'docs': selected_lines,
                 'statements': [],
-                'date_from': False,
-                'date_to': False,
+                'date_from': min(selected_lines.mapped('date')),
+                'date_to': max(selected_lines.mapped('date')),
             }
 
         # ==========================================================
-        # 3. Date range
+        # 4. DATE RANGE
         #
-        # Prefer wizard dates if supplied.
-        # Otherwise use min/max selected dates.
+        # Use data dates if wizard provides them.
+        # Otherwise use selected lines min/max.
         # ==========================================================
 
-        selected_dates = all_selected.mapped('date')
+        dates = selected_lines.mapped('date')
 
         date_from = False
         date_to = False
 
-        if data and data.get('date_from'):
-            date_from = data.get('date_from')
-        elif selected_dates:
-            date_from = min(selected_dates)
+        if data:
+            date_from = data.get('date_from') or False
+            date_to = data.get('date_to') or False
 
-        if data and data.get('date_to'):
-            date_to = data.get('date_to')
-        elif selected_dates:
-            date_to = max(selected_dates)
+        if not date_from:
+            date_from = min(dates) if dates else False
+
+        if not date_to:
+            date_to = max(dates) if dates else False
 
         _logger.warning(
             "DATE RANGE = %s -> %s",
@@ -1251,57 +1263,66 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
         # ==========================================================
-        # 4. ALL partner AML in selected period
+        # 5. IMPORTANT ACCOUNT SUMMARY
+        #
+        # This is the part that was missing before.
+        # We explicitly verify ALL accounts.
+        # ==========================================================
+
+        account_groups = {}
+
+        for line in selected_lines:
+
+            account = line.account_id
+
+            if not account:
+                continue
+
+            key = account.id
+
+            if key not in account_groups:
+                account_groups[key] = {
+                    'account': account,
+                    'count': 0,
+                    'debit': 0.0,
+                    'credit': 0.0,
+                }
+
+            account_groups[key]['count'] += 1
+            account_groups[key]['debit'] += line.debit or 0.0
+            account_groups[key]['credit'] += line.credit or 0.0
+
+        _logger.warning("")
+        _logger.warning("=" * 80)
+        _logger.warning("ACCOUNT SUMMARY")
+        _logger.warning("=" * 80)
+
+        for values in account_groups.values():
+
+            account = values['account']
+
+            _logger.warning(
+                "ACCOUNT | code=%s | name=%s | count=%s | "
+                "debit=%s | credit=%s | balance=%s",
+                account.code,
+                account.name,
+                values['count'],
+                values['debit'],
+                values['credit'],
+                values['debit'] - values['credit'],
+            )
+
+        # ==========================================================
+        # 6. OPENING BALANCE
         #
         # IMPORTANT:
-        # No account filter here.
+        # Opening balance is calculated across ALL accounts used
+        # by this partner, not one partner property account.
         #
-        # This allows:
-        #   100100 Cash
-        #   100201 Receivable
-        #   400101 Sales
-        #
-        # to be discovered.
-        # ==========================================================
-
-        period_domain = [
-            ('partner_id', 'in', partners.ids),
-            ('parent_state', '=', 'posted'),
-        ]
-
-        if date_from:
-            period_domain.append(
-                ('date', '>=', date_from)
-            )
-
-        if date_to:
-            period_domain.append(
-                ('date', '<=', date_to)
-            )
-
-        period_lines = AccountMoveLine.search(
-            period_domain,
-            order='date asc, move_id asc, sequence asc, id asc',
-        )
-
-        _logger.warning(
-            "ALL PERIOD PARTNER AML = %s | IDS=%s",
-            len(period_lines),
-            period_lines.ids,
-        )
-
-        # ==========================================================
-        # 5. Opening balance
-        #
-        # Opening balance must use ALL receivable/payable accounts
-        # used by the partner historically.
-        #
-        # We deliberately do NOT use:
-        #
-        #     partner.property_account_receivable_id
-        #
-        # because the partner may have historical entries on another
-        # receivable account.
+        # This is critical when the customer has:
+        #   100100
+        #   100201
+        #   400101
         # ==========================================================
 
         statements = []
@@ -1309,45 +1330,64 @@ class CustomerStatementReport(models.AbstractModel):
         for partner in partners:
 
             _logger.warning("")
+            _logger.warning("=" * 80)
             _logger.warning(
-                "======================================================"
-            )
-            _logger.warning(
-                " PROCESS PARTNER: %s (ID=%s)",
+                "PROCESS PARTNER = %s (ID=%s)",
                 partner.name,
                 partner.id,
             )
-            _logger.warning(
-                "======================================================"
-            )
+            _logger.warning("=" * 80)
 
             # ------------------------------------------------------
-            # Partner lines in selected period
+            # Selected lines for this partner
             # ------------------------------------------------------
 
-            partner_period_lines = period_lines.filtered(
+            partner_selected = selected_lines.filtered(
                 lambda l: l.partner_id == partner
+            ).sorted(
+                key=lambda l: (
+                    l.date,
+                    l.move_id.id,
+                    l.sequence,
+                    l.id,
+                )
+            )
+
+            _logger.warning(
+                "PARTNER SELECTED AML COUNT = %s | IDS=%s",
+                len(partner_selected),
+                partner_selected.ids,
             )
 
             # ------------------------------------------------------
-            # All historical receivable/payable lines before period
+            # Accounts used by this partner
+            # ------------------------------------------------------
+
+            partner_accounts = partner_selected.mapped(
+                'account_id'
+            )
+
+            _logger.warning(
+                "PARTNER ACCOUNTS = %s",
+                [
+                    "%s %s" % (a.code, a.name)
+                    for a in partner_accounts
+                ],
+            )
+
+            # ------------------------------------------------------
+            # Opening lines
+            #
+            # ALL accounts, not one account.
             # ------------------------------------------------------
 
             opening_domain = [
                 ('partner_id', '=', partner.id),
                 ('parent_state', '=', 'posted'),
-                ('account_id.account_type', 'in', (
-                    'asset_receivable',
-                    'liability_payable',
-                )),
+                ('date', '<', date_from),
             ]
 
-            if date_from:
-                opening_domain.append(
-                    ('date', '<', date_from)
-                )
-
-            opening_lines = AccountMoveLine.search(
+            opening_lines = self.env['account.move.line'].search(
                 opening_domain
             )
 
@@ -1359,9 +1399,7 @@ class CustomerStatementReport(models.AbstractModel):
                 opening_lines.mapped('credit')
             )
 
-            opening_balance = (
-                opening_debit - opening_credit
-            )
+            opening_balance = opening_debit - opening_credit
 
             _logger.warning(
                 "OPENING | partner=%s | lines=%s | debit=%s | "
@@ -1374,7 +1412,7 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             # ======================================================
-            # 6. Running balance
+            # 7. RUNNING BALANCE
             # ======================================================
 
             balance = opening_balance
@@ -1386,441 +1424,142 @@ class CustomerStatementReport(models.AbstractModel):
             total_credit = 0.0
 
             # ======================================================
-            # 7. Process moves
+            # 8. PROCESS EVERY AML EXACTLY ONCE
             #
-            # We process each move only once.
+            # NO grouping by move.
+            # NO invoice expansion.
+            # NO replacing AR line with invoice lines.
+            #
+            # This guarantees:
+            #
+            # selected AML = result rows
+            #
+            # 55 AML -> 55 result rows
             # ======================================================
 
-            moves = partner_period_lines.mapped(
-                'move_id'
-            ).sorted(
-                key=lambda m: (
-                    m.date or False,
-                    m.id,
-                )
-            )
+            for line in partner_selected:
 
-            _logger.warning(
-                "PARTNER=%s | PERIOD AML=%s | UNIQUE MOVES=%s",
-                partner.name,
-                len(partner_period_lines),
-                len(moves),
-            )
+                move = line.move_id
+                account = line.account_id
 
-            for move in moves:
+                debit = line.debit or 0.0
+                credit = line.credit or 0.0
 
-                move_lines = partner_period_lines.filtered(
-                    lambda l: l.move_id == move
+                # --------------------------------------------------
+                # Account type
+                # --------------------------------------------------
+
+                account_type = (
+                    account.account_type
+                    if account
+                    else False
                 )
 
-                if not move_lines:
-                    continue
-
-                _logger.warning("")
-                _logger.warning(
-                    "PROCESS MOVE | id=%s | name=%s | type=%s | "
-                    "date=%s | AML=%s",
-                    move.id,
-                    move.name,
-                    move.move_type,
-                    move.date,
-                    move_lines.ids,
-                )
-
-                # ==================================================
-                # CUSTOMER INVOICE
-                # ==================================================
-
-                if move.move_type == 'out_invoice':
-
-                    invoice_lines = move.invoice_line_ids.filtered(
-                        lambda x:
-                            x.display_type == 'product'
-                            and x.product_id
-                    ).sorted(
-                        key=lambda x: (
-                            x.sequence,
-                            x.id,
-                        )
-                    )
-
-                    # ----------------------------------------------
-                    # Receivable line
-                    # ----------------------------------------------
-
-                    receivable_lines = self._get_partner_account_lines(
-                        move_lines
-                    )
-
-                    # Usually one AR line.
-                    # We use the total receivable amount as the
-                    # invoice amount.
-                    invoice_amount = sum(
-                        receivable_lines.mapped('debit')
-                    ) - sum(
-                        receivable_lines.mapped('credit')
-                    )
-
-                    _logger.warning(
-                        "INVOICE %s | product_lines=%s | "
-                        "receivable_lines=%s | invoice_amount=%s",
-                        move.name,
-                        len(invoice_lines),
-                        receivable_lines.ids,
-                        invoice_amount,
-                    )
-
-                    # --------------------------------------------------
-                    # If there are product lines:
-                    #
-                    # The product lines represent the invoice debit.
-                    # We distribute the invoice amount using the
-                    # actual invoice line subtotal values.
-                    #
-                    # This avoids using Sales AML individually because
-                    # those AMLs are revenue lines, not customer debt.
-                    # --------------------------------------------------
-
-                    if invoice_lines:
-
-                        invoice_product_total = sum(
-                            invoice_lines.mapped('price_subtotal')
-                        )
-
-                        # ------------------------------------------------
-                        # Normally invoice_product_total equals the
-                        # receivable amount, except taxes/rounding.
-                        #
-                        # For the customer statement we use the
-                        # receivable total for the final balance.
-                        #
-                        # Product lines are displayed using their
-                        # actual subtotal.
-                        # ------------------------------------------------
-
-                        product_running_total = 0.0
-
-                        for il in invoice_lines:
-
-                            amount = il.price_subtotal or 0.0
-                            quantity = il.quantity or 0.0
-                            unit_price = il.price_unit or 0.0
-
-                            product_running_total += amount
-
-                            # For display/running balance:
-                            #
-                            # We use product amount because the
-                            # statement is showing invoice products.
-
-                            balance += amount
-
-                            total_qty += quantity
-                            total_debit += amount
-
-                            result_lines.append({
-                                'date': move.date,
-                                'transaction': move.name,
-                                'product': il.product_id.display_name,
-                                'quantity': quantity,
-                                'unit_price': unit_price,
-                                'debit': amount,
-                                'credit': 0.0,
-                                'balance': balance,
-                            })
-
-                            _logger.warning(
-                                "  PRODUCT | move=%s | line=%s | "
-                                "product=%s | qty=%s | subtotal=%s | "
-                                "balance=%s",
-                                move.name,
-                                il.id,
-                                il.product_id.display_name,
-                                quantity,
-                                amount,
-                                balance,
-                            )
-
-                        # ------------------------------------------------
-                        # If invoice product subtotal differs from AR
-                        # amount because of taxes/rounding/other values,
-                        # add the difference as an adjustment line.
-                        #
-                        # This prevents final balance from becoming
-                        # different from the accounting receivable.
-                        # ------------------------------------------------
-
-                        difference = (
-                            invoice_amount -
-                            product_running_total
-                        )
-
-                        if abs(difference) > 0.0001:
-
-                            balance += difference
-                            total_debit += difference
-
-                            result_lines.append({
-                                'date': move.date,
-                                'transaction': move.name,
-                                'product': (
-                                    move.ref
-                                    or 'Invoice adjustment'
-                                ),
-                                'quantity': None,
-                                'unit_price': None,
-                                'debit': difference,
-                                'credit': 0.0,
-                                'balance': balance,
-                            })
-
-                            _logger.warning(
-                                "  INVOICE ADJUSTMENT | move=%s | "
-                                "difference=%s | balance=%s",
-                                move.name,
-                                difference,
-                                balance,
-                            )
-
-                    # --------------------------------------------------
-                    # No product lines
-                    # --------------------------------------------------
-
-                    else:
-
-                        debit = max(invoice_amount, 0.0)
-                        credit = max(-invoice_amount, 0.0)
-
-                        balance += debit - credit
-
-                        total_debit += debit
-                        total_credit += credit
-
-                        result_lines.append({
-                            'date': move.date,
-                            'transaction': move.name,
-                            'product': (
-                                move.ref
-                                or move.name
-                                or 'Invoice'
-                            ),
-                            'quantity': None,
-                            'unit_price': None,
-                            'debit': debit,
-                            'credit': credit,
-                            'balance': balance,
-                        })
-
-                # ==================================================
-                # CUSTOMER REFUND
-                # ==================================================
-
-                elif move.move_type == 'out_refund':
-
-                    invoice_lines = move.invoice_line_ids.filtered(
-                        lambda x:
-                            x.display_type == 'product'
-                            and x.product_id
-                    ).sorted(
-                        key=lambda x: (
-                            x.sequence,
-                            x.id,
-                        )
-                    )
-
-                    receivable_lines = self._get_partner_account_lines(
-                        move_lines
-                    )
-
-                    refund_amount = (
-                        sum(receivable_lines.mapped('credit'))
-                        -
-                        sum(receivable_lines.mapped('debit'))
-                    )
-
-                    _logger.warning(
-                        "REFUND %s | product_lines=%s | "
-                        "receivable_lines=%s | refund_amount=%s",
-                        move.name,
-                        len(invoice_lines),
-                        receivable_lines.ids,
-                        refund_amount,
-                    )
-
-                    if invoice_lines:
-
-                        product_total = sum(
-                            invoice_lines.mapped('price_subtotal')
-                        )
-
-                        product_running_total = 0.0
-
-                        for il in invoice_lines:
-
-                            amount = il.price_subtotal or 0.0
-                            quantity = il.quantity or 0.0
-                            unit_price = il.price_unit or 0.0
-
-                            product_running_total += amount
-
-                            balance -= amount
-
-                            total_qty += quantity
-                            total_credit += amount
-
-                            result_lines.append({
-                                'date': move.date,
-                                'transaction': move.name,
-                                'product': il.product_id.display_name,
-                                'quantity': quantity,
-                                'unit_price': unit_price,
-                                'debit': 0.0,
-                                'credit': amount,
-                                'balance': balance,
-                            })
-
-                        difference = (
-                            refund_amount -
-                            product_running_total
-                        )
-
-                        if abs(difference) > 0.0001:
-
-                            balance -= difference
-                            total_credit += difference
-
-                            result_lines.append({
-                                'date': move.date,
-                                'transaction': move.name,
-                                'product': (
-                                    move.ref
-                                    or 'Refund adjustment'
-                                ),
-                                'quantity': None,
-                                'unit_price': None,
-                                'debit': 0.0,
-                                'credit': difference,
-                                'balance': balance,
-                            })
-
-                    else:
-
-                        credit = max(refund_amount, 0.0)
-                        debit = max(-refund_amount, 0.0)
-
-                        balance += debit - credit
-
-                        total_debit += debit
-                        total_credit += credit
-
-                        result_lines.append({
-                            'date': move.date,
-                            'transaction': move.name,
-                            'product': (
-                                move.ref
-                                or move.name
-                                or 'Refund'
-                            ),
-                            'quantity': None,
-                            'unit_price': None,
-                            'debit': debit,
-                            'credit': credit,
-                            'balance': balance,
-                        })
-
-                # ==================================================
-                # PAYMENT / JOURNAL ENTRY / OTHER
+                # --------------------------------------------------
+                # Product
                 #
-                # IMPORTANT:
-                # Do NOT use cash line.
+                # For Sales Account lines, Odoo already has product_id
+                # on the AML.
                 #
-                # Use ONLY partner receivable/payable line.
-                # ==================================================
+                # For Receivable / Cash lines, product is usually empty.
+                # We use the AML name / move ref instead.
+                # --------------------------------------------------
+
+                product = ''
+
+                if line.product_id:
+                    product = line.product_id.display_name
+
+                elif line.name:
+                    product = line.name
+
+                elif move.ref:
+                    product = move.ref
+
+                elif move.payment_reference:
+                    product = move.payment_reference
 
                 else:
+                    product = move.name
 
-                    partner_account_lines = (
-                        self._get_partner_account_lines(
-                            move_lines
-                        )
-                    )
+                # --------------------------------------------------
+                # Quantity
+                # --------------------------------------------------
 
-                    if not partner_account_lines:
+                quantity = 0.0
 
-                        _logger.warning(
-                            "SKIP MOVE %s | no receivable/payable "
-                            "partner line",
-                            move.name,
-                        )
+                if line.product_id:
+                    quantity = line.quantity or 0.0
 
-                        continue
+                # --------------------------------------------------
+                # Unit Price
+                # --------------------------------------------------
 
-                    debit = sum(
-                        partner_account_lines.mapped('debit')
-                    )
+                unit_price = 0.0
 
-                    credit = sum(
-                        partner_account_lines.mapped('credit')
-                    )
+                if line.product_id:
+                    unit_price = line.price_unit or 0.0
 
-                    balance += debit - credit
+                # --------------------------------------------------
+                # Running balance
+                # --------------------------------------------------
 
-                    total_debit += debit
-                    total_credit += credit
+                balance += debit - credit
 
-                    # ------------------------------------------------
-                    # Description
-                    # ------------------------------------------------
+                total_qty += quantity
+                total_debit += debit
+                total_credit += credit
 
-                    descriptions = []
+                # --------------------------------------------------
+                # Detailed logging
+                # --------------------------------------------------
 
-                    for pline in partner_account_lines:
+                _logger.warning(
+                    "REPORT LINE | "
+                    "AML_ID=%s | DATE=%s | MOVE=%s | "
+                    "ACCOUNT=%s %s | TYPE=%s | "
+                    "PRODUCT=%s | QTY=%s | UNIT_PRICE=%s | "
+                    "DEBIT=%s | CREDIT=%s | BALANCE=%s",
+                    line.id,
+                    line.date,
+                    move.name,
+                    account.code if account else None,
+                    account.name if account else None,
+                    account_type,
+                    product,
+                    quantity,
+                    unit_price,
+                    debit,
+                    credit,
+                    balance,
+                )
 
-                        if pline.name:
-                            descriptions.append(
-                                pline.name
-                            )
+                # --------------------------------------------------
+                # Add EXACTLY ONE report line for EXACTLY ONE AML
+                # --------------------------------------------------
 
-                        elif pline.ref:
-                            descriptions.append(
-                                pline.ref
-                            )
+                result_lines.append({
+                    'aml_id': line.id,
+                    'date': line.date,
+                    'transaction': move.name,
+                    'product': product,
+                    'description': line.name or '',
+                    'quantity': quantity,
+                    'unit_price': unit_price,
+                    'debit': debit,
+                    'credit': credit,
+                    'balance': balance,
 
-                    description = '\n'.join(
-                        dict.fromkeys(descriptions)
-                    )
-
-                    if not description:
-                        description = (
-                            move.ref
-                            or move.name
-                            or ''
-                        )
-
-                    result_lines.append({
-                        'date': move.date,
-                        'transaction': move.name,
-                        'product': description,
-                        'quantity': None,
-                        'unit_price': None,
-                        'debit': debit,
-                        'credit': credit,
-                        'balance': balance,
-                    })
-
-                    _logger.warning(
-                        "  OTHER MOVE | move=%s | "
-                        "partner_account_lines=%s | "
-                        "debit=%s | credit=%s | balance=%s",
-                        move.name,
-                        partner_account_lines.ids,
-                        debit,
-                        credit,
-                        balance,
-                    )
+                    # Extra information available to QWeb
+                    'account_id': account.id if account else False,
+                    'account_code': account.code if account else '',
+                    'account_name': account.name if account else '',
+                    'account_type': account_type or '',
+                    'move_type': move.move_type,
+                })
 
             # ======================================================
-            # 8. Final totals
+            # 9. VALIDATION
             # ======================================================
 
             expected_closing = (
@@ -1830,51 +1569,101 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             _logger.warning("")
-            _logger.warning(
-                "======================================================"
-            )
-            _logger.warning(
-                " FINAL PARTNER RESULT"
-            )
+            _logger.warning("=" * 80)
+            _logger.warning("FINAL PARTNER RESULT")
+            _logger.warning("=" * 80)
+
             _logger.warning(
                 "PARTNER = %s",
                 partner.name,
             )
+
+            _logger.warning(
+                "SELECTED AML = %s",
+                len(partner_selected),
+            )
+
             _logger.warning(
                 "RESULT LINES = %s",
                 len(result_lines),
             )
+
             _logger.warning(
                 "TOTAL QTY = %s",
                 total_qty,
             )
+
             _logger.warning(
                 "TOTAL DEBIT = %s",
                 total_debit,
             )
+
             _logger.warning(
                 "TOTAL CREDIT = %s",
                 total_credit,
             )
+
             _logger.warning(
                 "OPENING = %s",
                 opening_balance,
             )
+
             _logger.warning(
                 "EXPECTED CLOSING = %s",
                 expected_closing,
             )
+
             _logger.warning(
                 "ACTUAL CLOSING = %s",
                 balance,
             )
-            _logger.warning(
-                "======================================================"
-            )
 
-            # ======================================================
-            # 9. Statement
-            # ======================================================
+            # ------------------------------------------------------
+            # CRITICAL VALIDATION
+            # ------------------------------------------------------
+
+            if len(result_lines) != len(partner_selected):
+
+                _logger.error(
+                    "!!!!!!!!!!!!! ROW COUNT MISMATCH !!!!!!!!!!!!!"
+                )
+
+                _logger.error(
+                    "SELECTED AML = %s",
+                    len(partner_selected),
+                )
+
+                _logger.error(
+                    "RESULT LINES = %s",
+                    len(result_lines),
+                )
+
+            else:
+
+                _logger.warning(
+                    "ROW COUNT OK: %s AML -> %s REPORT ROWS",
+                    len(partner_selected),
+                    len(result_lines),
+                )
+
+            # ------------------------------------------------------
+            # Account count validation
+            # ------------------------------------------------------
+
+            result_account_counts = {}
+
+            for row in result_lines:
+
+                code = row['account_code'] or 'NO_ACCOUNT'
+
+                result_account_counts[code] = (
+                    result_account_counts.get(code, 0) + 1
+                )
+
+            _logger.warning(
+                "RESULT ACCOUNT COUNTS = %s",
+                result_account_counts,
+            )
 
             statements.append({
                 'partner': partner,
@@ -1890,30 +1679,92 @@ class CustomerStatementReport(models.AbstractModel):
                 'total_debit': total_debit,
 
                 'total_credit': total_credit,
+
+                # Useful if QWeb wants to display account summary
+                'accounts': [
+                    {
+                        'account': values['account'],
+                        'count': values['count'],
+                        'debit': values['debit'],
+                        'credit': values['credit'],
+                        'balance': (
+                            values['debit']
+                            - values['credit']
+                        ),
+                    }
+                    for values in account_groups.values()
+                    if values['account'] in partner_accounts
+                ],
             })
 
         # ==========================================================
-        # FINAL REPORT VALUES
+        # 10. GLOBAL VALIDATION
         # ==========================================================
 
         _logger.warning("")
-        _logger.warning("==========================================================")
-        _logger.warning(" CUSTOMER STATEMENT FINAL VERSION END")
-        _logger.warning(" STATEMENTS = %s", len(statements))
-        _logger.warning("==========================================================")
+        _logger.warning("=" * 80)
+        _logger.warning("GLOBAL VALIDATION")
+        _logger.warning("=" * 80)
+
+        total_selected = len(selected_lines)
+
+        total_report_lines = sum(
+            len(statement['lines'])
+            for statement in statements
+        )
+
+        _logger.warning(
+            "TOTAL SELECTED AML = %s",
+            total_selected,
+        )
+
+        _logger.warning(
+            "TOTAL REPORT LINES = %s",
+            total_report_lines,
+        )
+
+        if total_selected != total_report_lines:
+
+            _logger.error(
+                "!!!!!!!! FINAL ROW COUNT MISMATCH !!!!!!!!"
+            )
+
+            _logger.error(
+                "SELECTED=%s | REPORT=%s",
+                total_selected,
+                total_report_lines,
+            )
+
+        else:
+
+            _logger.warning(
+                "SUCCESS: EVERY SELECTED AML HAS ONE REPORT ROW"
+            )
+
         _logger.warning("")
+        _logger.warning("=" * 80)
+        _logger.warning(
+            "CUSTOMER STATEMENT - RAW AML VERSION END"
+        )
+        _logger.warning("=" * 80)
+        _logger.warning("")
+
+        # ==========================================================
+        # 11. REPORT VALUES
+        # ==========================================================
 
         return {
             'doc_ids': docids,
             'doc_model': 'account.move.line',
-            'docs': all_selected,
+
+            # Keep all selected records
+            'docs': selected_lines,
 
             'statements': statements,
 
             'date_from': date_from,
             'date_to': date_to,
         }
-
 
 
 
