@@ -1768,6 +1768,10 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
+
+
+
+
 import logging
 
 from odoo import api, models
@@ -1778,7 +1782,7 @@ _logger = logging.getLogger(__name__)
 
 class CustomerStatementReport(models.AbstractModel):
     _name = 'report.customer_statement_report.from_lines'
-    _description = 'Customer Statement Report'
+    _description = 'Customer / Vendor Statement Report'
 
     @api.model
     def _get_report_values(self, docids, data=None):
@@ -1792,7 +1796,9 @@ class CustomerStatementReport(models.AbstractModel):
         # 1. GET EXACTLY THE SELECTED ACCOUNT MOVE LINES
         # ==========================================================
 
-        selected_lines = self.env['account.move.line'].browse(docids).exists()
+        selected_lines = self.env['account.move.line'].browse(
+            docids
+        ).exists()
 
         _logger.warning(
             "DOCIDS COUNT = %s | IDS = %s",
@@ -1942,214 +1948,7 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
         # ==========================================================
-        # 6. HELPER:
-        #    DETERMINE CUSTOMER / VENDOR
-        # ==========================================================
-
-        def get_partner_kind(partner):
-
-            # ------------------------------------------------------
-            # Prefer the actual selected AML account types.
-            # This is safer when a partner has both customer/vendor
-            # activity.
-            # ------------------------------------------------------
-
-            partner_lines = selected_lines.filtered(
-                lambda l: l.partner_id == partner
-            )
-
-            account_types = set(
-                partner_lines.mapped('account_id.account_type')
-            )
-
-            if 'liability_payable' in account_types:
-                return 'vendor'
-
-            if 'asset_receivable' in account_types:
-                return 'customer'
-
-            # ------------------------------------------------------
-            # Fallback to partner ranks.
-            # ------------------------------------------------------
-
-            if getattr(partner, 'supplier_rank', 0) > 0:
-                return 'vendor'
-
-            if getattr(partner, 'customer_rank', 0) > 0:
-                return 'customer'
-
-            return 'customer'
-
-        # ==========================================================
-        # 7. HELPER:
-        #    FIND CONTROL ACCOUNT
-        #
-        # Customer:
-        #     asset_receivable
-        #
-        # Vendor:
-        #     liability_payable
-        # ==========================================================
-
-        def get_control_account(partner_selected, partner_kind):
-
-            if partner_kind == 'vendor':
-
-                payable_lines = partner_selected.filtered(
-                    lambda l: l.account_id
-                    and l.account_id.account_type
-                    == 'liability_payable'
-                )
-
-                if payable_lines:
-                    accounts = payable_lines.mapped('account_id')
-
-                    # Usually there is one payable account.
-                    # If multiple exist, use the first one that
-                    # actually appears in the selected lines.
-                    return accounts[0]
-
-            else:
-
-                receivable_lines = partner_selected.filtered(
-                    lambda l: l.account_id
-                    and l.account_id.account_type
-                    == 'asset_receivable'
-                )
-
-                if receivable_lines:
-                    accounts = receivable_lines.mapped('account_id')
-
-                    return accounts[0]
-
-            return self.env['account.account']
-
-        # ==========================================================
-        # 8. HELPER:
-        #    PRODUCT / DESCRIPTION
-        # ==========================================================
-
-        def get_product_info(line):
-
-            move = line.move_id
-
-            product = ''
-            quantity = 0.0
-            unit_price = 0.0
-
-            # ------------------------------------------------------
-            # First source: actual AML
-            # ------------------------------------------------------
-
-            if line.product_id:
-
-                product = line.product_id.display_name
-
-                quantity = line.quantity or 0.0
-
-                unit_price = line.price_unit or 0.0
-
-            # ------------------------------------------------------
-            # Second source:
-            # invoice lines belonging to the move.
-            #
-            # This is important for vendor bills where the selected
-            # AML may contain incomplete quantity/price information.
-            # ------------------------------------------------------
-
-            if move and move.is_invoice():
-
-                invoice_lines = move.invoice_line_ids
-
-                # Try exact product first.
-                if line.product_id:
-
-                    matching_lines = invoice_lines.filtered(
-                        lambda inv_line:
-                        inv_line.product_id
-                        and inv_line.product_id.id
-                        == line.product_id.id
-                    )
-
-                else:
-                    matching_lines = invoice_lines.filtered(
-                        lambda inv_line:
-                        inv_line.account_id
-                        and line.account_id
-                        and inv_line.account_id.id
-                        == line.account_id.id
-                    )
-
-                # --------------------------------------------------
-                # Only use invoice-line data when AML data is empty.
-                # This prevents replacing correct AML values.
-                # --------------------------------------------------
-
-                if matching_lines:
-
-                    invoice_line = matching_lines[0]
-
-                    if not product and invoice_line.product_id:
-                        product = invoice_line.product_id.display_name
-
-                    if not quantity:
-                        quantity = invoice_line.quantity or 0.0
-
-                    if not unit_price:
-                        unit_price = invoice_line.price_unit or 0.0
-
-            # ------------------------------------------------------
-            # Description fallback
-            # ------------------------------------------------------
-
-            if not product:
-
-                if line.name:
-                    product = line.name
-
-                elif move and move.ref:
-                    product = move.ref
-
-                elif move and move.payment_reference:
-                    product = move.payment_reference
-
-                elif move:
-                    product = move.name
-
-            return product, quantity, unit_price
-
-        # ==========================================================
-        # 9. HELPER:
-        #    CALCULATE BALANCE EFFECT
-        #
-        # Customer:
-        #     debit  -> increases receivable
-        #     credit -> decreases receivable
-        #
-        # Vendor:
-        #     credit -> increases payable
-        #     debit  -> decreases payable
-        # ==========================================================
-
-        def get_balance_effect(line, partner_kind, control_account):
-
-            if not control_account:
-                return 0.0
-
-            if line.account_id != control_account:
-                return 0.0
-
-            debit = line.debit or 0.0
-            credit = line.credit or 0.0
-
-            if partner_kind == 'vendor':
-
-                return credit - debit
-
-            return debit - credit
-
-        # ==========================================================
-        # 10. PROCESS PARTNERS
+        # 6. PROCESS EACH PARTNER
         # ==========================================================
 
         statements = []
@@ -2166,7 +1965,7 @@ class CustomerStatementReport(models.AbstractModel):
             _logger.warning("=" * 80)
 
             # ------------------------------------------------------
-            # Selected lines for this partner
+            # Selected AML for partner
             # ------------------------------------------------------
 
             partner_selected = selected_lines.filtered(
@@ -2190,16 +1989,119 @@ class CustomerStatementReport(models.AbstractModel):
             # Determine customer/vendor
             # ------------------------------------------------------
 
-            partner_kind = get_partner_kind(partner)
+            if (
+                hasattr(partner, 'supplier_rank')
+                and partner.supplier_rank > 0
+                and partner.customer_rank == 0
+            ):
+                partner_kind = 'vendor'
+
+            elif (
+                hasattr(partner, 'customer_rank')
+                and partner.customer_rank > 0
+                and partner.supplier_rank == 0
+            ):
+                partner_kind = 'customer'
+
+            else:
+                # If both exist, determine from selected control lines.
+                has_payable = any(
+                    line.account_id
+                    and line.account_id.account_type == 'liability_payable'
+                    for line in partner_selected
+                )
+
+                has_receivable = any(
+                    line.account_id
+                    and line.account_id.account_type == 'asset_receivable'
+                    for line in partner_selected
+                )
+
+                if has_payable and not has_receivable:
+                    partner_kind = 'vendor'
+
+                else:
+                    partner_kind = 'customer'
 
             _logger.warning(
                 "PARTNER KIND = %s",
                 partner_kind,
             )
 
+            # ======================================================
+            # 7. FIND CONTROL ACCOUNT
+            #
+            # CUSTOMER:
+            #     asset_receivable
+            #
+            # VENDOR:
+            #     liability_payable
+            # ======================================================
+
+            control_account = False
+
+            if partner_kind == 'vendor':
+
+                payable_lines = partner_selected.filtered(
+                    lambda l:
+                        l.account_id
+                        and l.account_id.account_type
+                        == 'liability_payable'
+                )
+
+                if payable_lines:
+                    control_account = (
+                        payable_lines[0].account_id
+                    )
+
+            else:
+
+                receivable_lines = partner_selected.filtered(
+                    lambda l:
+                        l.account_id
+                        and l.account_id.account_type
+                        == 'asset_receivable'
+                )
+
+                if receivable_lines:
+                    control_account = (
+                        receivable_lines[0].account_id
+                    )
+
             # ------------------------------------------------------
-            # Accounts used by this partner
+            # Fallback:
+            # Find the account by partner property if no selected
+            # control line exists.
             # ------------------------------------------------------
+
+            if not control_account:
+
+                if partner_kind == 'vendor':
+
+                    property_account = (
+                        partner.property_account_payable_id
+                    )
+
+                else:
+
+                    property_account = (
+                        partner.property_account_receivable_id
+                    )
+
+                if property_account:
+                    control_account = property_account
+
+            _logger.warning(
+                "CONTROL ACCOUNT = %s | TYPE=%s",
+                control_account.code
+                if control_account else None,
+                control_account.account_type
+                if control_account else None,
+            )
+
+            # ======================================================
+            # 8. PARTNER ACCOUNTS
+            # ======================================================
 
             partner_accounts = partner_selected.mapped(
                 'account_id'
@@ -2213,54 +2115,33 @@ class CustomerStatementReport(models.AbstractModel):
                 ],
             )
 
-            # ------------------------------------------------------
-            # Control account
-            # ------------------------------------------------------
-
-            control_account = get_control_account(
-                partner_selected,
-                partner_kind,
-            )
-
-            if control_account:
-
-                _logger.warning(
-                    "CONTROL ACCOUNT = %s %s | TYPE=%s",
-                    control_account.code,
-                    control_account.name,
-                    control_account.account_type,
-                )
-
-            else:
-
-                _logger.warning(
-                    "CONTROL ACCOUNT = NOT FOUND"
-                )
-
             # ======================================================
-            # 11. OPENING BALANCE
+            # 9. OPENING BALANCE
             #
             # VERY IMPORTANT:
             #
-            # Opening is calculated ONLY from the partner control
-            # account.
+            # Opening balance is ONLY from the control account.
             #
-            # Do NOT include:
-            #     Sales
+            # Vendor:
+            #     Payables
+            #
+            # Customer:
+            #     Receivable
+            #
+            # We do NOT include:
             #     COGS
+            #     Sales
             #     Cash
             #     Inventory
-            #
-            # Otherwise the statement double-counts journal entries.
+            #     etc.
             # ======================================================
 
+            opening_balance = 0.0
             opening_debit = 0.0
             opening_credit = 0.0
-            opening_balance = 0.0
-
             opening_lines = self.env['account.move.line']
 
-            if control_account:
+            if control_account and date_from:
 
                 opening_domain = [
                     ('partner_id', '=', partner.id),
@@ -2281,29 +2162,18 @@ class CustomerStatementReport(models.AbstractModel):
                     opening_lines.mapped('credit')
                 )
 
-                if partner_kind == 'vendor':
-
-                    opening_balance = (
-                        opening_credit
-                        - opening_debit
-                    )
-
-                else:
-
-                    opening_balance = (
-                        opening_debit
-                        - opening_credit
-                    )
+                opening_balance = (
+                    opening_debit
+                    - opening_credit
+                )
 
             _logger.warning(
                 "OPENING | partner=%s | kind=%s | account=%s | "
                 "lines=%s | debit=%s | credit=%s | balance=%s",
                 partner.name,
                 partner_kind,
-                (
-                    control_account.code
-                    if control_account else None
-                ),
+                control_account.code
+                if control_account else None,
                 len(opening_lines),
                 opening_debit,
                 opening_credit,
@@ -2311,7 +2181,7 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             # ======================================================
-            # 12. RUNNING BALANCE
+            # 10. RUNNING BALANCE
             # ======================================================
 
             balance = opening_balance
@@ -2320,18 +2190,38 @@ class CustomerStatementReport(models.AbstractModel):
 
             total_qty = 0.0
 
-            # These totals represent ALL selected AMLs because the
-            # report currently displays all selected accounting lines.
-            total_debit = 0.0
-            total_credit = 0.0
+            # ------------------------------------------------------
+            # IMPORTANT:
+            #
+            # These are the TOTALS displayed in the statement.
+            #
+            # They MUST be based on the CONTROL ACCOUNT only.
+            #
+            # Otherwise vendor invoice COGS will be counted as
+            # vendor debit and produce the wrong total.
+            # ------------------------------------------------------
 
-            # These are the actual statement totals affecting the
-            # partner balance.
             statement_debit = 0.0
             statement_credit = 0.0
 
+            # For debugging only
+            total_all_aml_debit = 0.0
+            total_all_aml_credit = 0.0
+
             # ======================================================
-            # 13. PROCESS EVERY AML EXACTLY ONCE
+            # 11. PROCESS EVERY AML
+            #
+            # Keep ONE row per AML.
+            #
+            # But:
+            #
+            # PRODUCT INFORMATION
+            #     comes from the original AML.
+            #
+            # FINANCIAL STATEMENT AMOUNT
+            #     comes ONLY from the control account.
+            #
+            # This is the critical fix for vendors.
             # ======================================================
 
             for line in partner_selected:
@@ -2339,15 +2229,11 @@ class CustomerStatementReport(models.AbstractModel):
                 move = line.move_id
                 account = line.account_id
 
-                debit = line.debit or 0.0
-                credit = line.credit or 0.0
+                raw_debit = line.debit or 0.0
+                raw_credit = line.credit or 0.0
 
-                total_debit += debit
-                total_credit += credit
-
-                # --------------------------------------------------
-                # Account type
-                # --------------------------------------------------
+                total_all_aml_debit += raw_debit
+                total_all_aml_credit += raw_credit
 
                 account_type = (
                     account.account_type
@@ -2356,46 +2242,122 @@ class CustomerStatementReport(models.AbstractModel):
                 )
 
                 # --------------------------------------------------
-                # Product / Quantity / Price
+                # Is this the partner control account?
                 # --------------------------------------------------
 
-                product, quantity, unit_price = get_product_info(
-                    line
+                is_control_line = bool(
+                    control_account
+                    and account
+                    and account.id == control_account.id
                 )
 
-                # --------------------------------------------------
-                # IMPORTANT:
+                # ==================================================
+                # PRODUCT
+                # ==================================================
+
+                product = ''
+
+                if line.product_id:
+                    product = line.product_id.display_name
+
+                elif line.name:
+                    product = line.name
+
+                elif move.ref:
+                    product = move.ref
+
+                elif move.payment_reference:
+                    product = move.payment_reference
+
+                else:
+                    product = move.name
+
+                # ==================================================
+                # QUANTITY
                 #
-                # Only the partner control account affects running
-                # balance.
-                # --------------------------------------------------
-
-                balance_effect = get_balance_effect(
-                    line,
-                    partner_kind,
-                    control_account,
-                )
-
-                balance += balance_effect
-
-                # --------------------------------------------------
-                # Statement debit/credit
+                # Keep original AML quantity.
                 #
-                # For vendor, display debit/credit as actual AML
-                # values, but statement balance uses the payable
-                # orientation.
-                # --------------------------------------------------
+                # This means product lines can still show:
+                # 25
+                # 10
+                # 3.9
+                #
+                # while control lines show 0.
+                # ==================================================
 
-                if control_account and line.account_id == control_account:
+                quantity = 0.0
 
-                    statement_debit += debit
-                    statement_credit += credit
+                if line.product_id:
+                    quantity = line.quantity or 0.0
 
-                total_qty += quantity
+                # Payment/product display lines that have no
+                # product should normally not add to quantity.
+                if line.product_id:
+                    total_qty += quantity
 
-                # --------------------------------------------------
-                # Detailed logging
-                # --------------------------------------------------
+                # ==================================================
+                # UNIT PRICE
+                # ==================================================
+
+                unit_price = 0.0
+
+                if line.product_id:
+                    unit_price = line.price_unit or 0.0
+
+                # ==================================================
+                # STATEMENT DEBIT / CREDIT
+                #
+                # THIS IS THE MAIN FIX.
+                #
+                # For vendor:
+                #
+                # BILL:
+                #   COGS line       -> statement debit = 0
+                #   Payables line   -> statement credit = AML credit
+                #
+                # PAYMENT:
+                #   Cash line       -> statement debit = 0
+                #   Payables line   -> statement debit = AML debit
+                #
+                # For customer:
+                #
+                # Only Receivable affects statement financial values.
+                # ==================================================
+
+                statement_line_debit = 0.0
+                statement_line_credit = 0.0
+                balance_effect = 0.0
+
+                if is_control_line:
+
+                    statement_line_debit = raw_debit
+                    statement_line_credit = raw_credit
+
+                    balance_effect = (
+                        statement_line_debit
+                        - statement_line_credit
+                    )
+
+                    statement_debit += (
+                        statement_line_debit
+                    )
+
+                    statement_credit += (
+                        statement_line_credit
+                    )
+
+                    balance += balance_effect
+
+                # ==================================================
+                # NON-CONTROL LINES
+                #
+                # They remain in the report.
+                #
+                # Their product/qty/price remain visible.
+                #
+                # But their financial effect is ZERO in the
+                # partner statement.
+                # ==================================================
 
                 _logger.warning(
                     "REPORT LINE | "
@@ -2403,7 +2365,9 @@ class CustomerStatementReport(models.AbstractModel):
                     "ACCOUNT=%s %s | TYPE=%s | "
                     "PARTNER_KIND=%s | CONTROL=%s | "
                     "PRODUCT=%s | QTY=%s | UNIT_PRICE=%s | "
-                    "DEBIT=%s | CREDIT=%s | "
+                    "RAW_DEBIT=%s | RAW_CREDIT=%s | "
+                    "STATEMENT_DEBIT=%s | "
+                    "STATEMENT_CREDIT=%s | "
                     "BALANCE_EFFECT=%s | BALANCE=%s",
                     line.id,
                     line.date,
@@ -2412,22 +2376,22 @@ class CustomerStatementReport(models.AbstractModel):
                     account.name if account else None,
                     account_type,
                     partner_kind,
-                    (
-                        control_account.code
-                        if control_account else None
-                    ),
+                    control_account.code
+                    if control_account else None,
                     product,
                     quantity,
                     unit_price,
-                    debit,
-                    credit,
+                    raw_debit,
+                    raw_credit,
+                    statement_line_debit,
+                    statement_line_credit,
                     balance_effect,
                     balance,
                 )
 
-                # --------------------------------------------------
-                # EXACTLY ONE REPORT ROW PER AML
-                # --------------------------------------------------
+                # ==================================================
+                # ADD EXACTLY ONE REPORT ROW PER AML
+                # ==================================================
 
                 result_lines.append({
                     'aml_id': line.id,
@@ -2444,13 +2408,35 @@ class CustomerStatementReport(models.AbstractModel):
 
                     'unit_price': unit_price,
 
-                    'debit': debit,
+                    # ------------------------------------------------
+                    # IMPORTANT:
+                    #
+                    # These are the statement amounts, NOT raw AML
+                    # amounts.
+                    # ------------------------------------------------
 
-                    'credit': credit,
+                    'debit': statement_line_debit,
+
+                    'credit': statement_line_credit,
 
                     'balance': balance,
 
-                    # Extra information
+                    # ------------------------------------------------
+                    # Raw AML values, available if QWeb needs them.
+                    # ------------------------------------------------
+
+                    'raw_debit': raw_debit,
+
+                    'raw_credit': raw_credit,
+
+                    'balance_effect': balance_effect,
+
+                    'is_control_line': is_control_line,
+
+                    # ------------------------------------------------
+                    # Account information
+                    # ------------------------------------------------
+
                     'account_id': (
                         account.id
                         if account else False
@@ -2466,35 +2452,26 @@ class CustomerStatementReport(models.AbstractModel):
                         if account else ''
                     ),
 
-                    'account_type': account_type or '',
-
-                    'move_type': move.move_type,
-
-                    'partner_kind': partner_kind,
-
-                    'is_control_account': (
-                        bool(
-                            control_account
-                            and account
-                            and account.id
-                            == control_account.id
-                        )
+                    'account_type': (
+                        account_type or ''
                     ),
 
-                    'balance_effect': balance_effect,
+                    'move_type': move.move_type,
                 })
 
             # ======================================================
-            # 14. VALIDATION
+            # 12. EXPECTED CLOSING
             # ======================================================
 
             expected_closing = (
                 opening_balance
-                + sum(
-                    row['balance_effect']
-                    for row in result_lines
-                )
+                + statement_debit
+                - statement_credit
             )
+
+            # ======================================================
+            # 13. VALIDATION
+            # ======================================================
 
             _logger.warning("")
             _logger.warning("=" * 80)
@@ -2513,10 +2490,8 @@ class CustomerStatementReport(models.AbstractModel):
 
             _logger.warning(
                 "CONTROL ACCOUNT = %s",
-                (
-                    control_account.code
-                    if control_account else None
-                ),
+                control_account.code
+                if control_account else None,
             )
 
             _logger.warning(
@@ -2536,12 +2511,12 @@ class CustomerStatementReport(models.AbstractModel):
 
             _logger.warning(
                 "TOTAL ALL AML DEBIT = %s",
-                total_debit,
+                total_all_aml_debit,
             )
 
             _logger.warning(
                 "TOTAL ALL AML CREDIT = %s",
-                total_credit,
+                total_all_aml_credit,
             )
 
             _logger.warning(
@@ -2570,7 +2545,7 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             # ------------------------------------------------------
-            # Row count validation
+            # Row count
             # ------------------------------------------------------
 
             if len(result_lines) != len(partner_selected):
@@ -2598,14 +2573,17 @@ class CustomerStatementReport(models.AbstractModel):
                 )
 
             # ------------------------------------------------------
-            # Account count validation
+            # Account count
             # ------------------------------------------------------
 
             result_account_counts = {}
 
             for row in result_lines:
 
-                code = row['account_code'] or 'NO_ACCOUNT'
+                code = (
+                    row['account_code']
+                    or 'NO_ACCOUNT'
+                )
 
                 result_account_counts[code] = (
                     result_account_counts.get(code, 0)
@@ -2618,17 +2596,40 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
             # ======================================================
-            # 15. STATEMENT
+            # 14. STATEMENT ACCOUNTS
+            # ======================================================
+
+            statement_accounts = []
+
+            for values in account_groups.values():
+
+                account = values['account']
+
+                if account in partner_accounts:
+
+                    statement_accounts.append({
+                        'account': account,
+
+                        'count': values['count'],
+
+                        'debit': values['debit'],
+
+                        'credit': values['credit'],
+
+                        'balance': (
+                            values['debit']
+                            - values['credit']
+                        ),
+                    })
+
+            # ======================================================
+            # 15. APPEND STATEMENT
             # ======================================================
 
             statements.append({
                 'partner': partner,
 
                 'partner_kind': partner_kind,
-
-                'is_vendor': partner_kind == 'vendor',
-
-                'is_customer': partner_kind == 'customer',
 
                 'control_account': control_account,
 
@@ -2660,43 +2661,24 @@ class CustomerStatementReport(models.AbstractModel):
 
                 'closing_balance': balance,
 
-                # All AML totals
                 'total_qty': total_qty,
 
-                'total_debit': total_debit,
+                # IMPORTANT:
+                # Statement totals are control-account totals.
+                'total_debit': statement_debit,
 
-                'total_credit': total_credit,
+                'total_credit': statement_credit,
 
-                # Actual statement/control-account totals
-                'statement_debit': statement_debit,
+                # Optional raw totals for debugging / QWeb.
+                'total_all_aml_debit': (
+                    total_all_aml_debit
+                ),
 
-                'statement_credit': statement_credit,
+                'total_all_aml_credit': (
+                    total_all_aml_credit
+                ),
 
-                # Useful account summary
-                'accounts': [
-                    {
-                        'account': values['account'],
-
-                        'count': values['count'],
-
-                        'debit': values['debit'],
-
-                        'credit': values['credit'],
-
-                        'balance': (
-                            values['credit']
-                            - values['debit']
-                            if partner_kind == 'vendor'
-                            else
-                            values['debit']
-                            - values['credit']
-                        ),
-                    }
-
-                    for values in account_groups.values()
-
-                    if values['account'] in partner_accounts
-                ],
+                'accounts': statement_accounts,
             })
 
         # ==========================================================
