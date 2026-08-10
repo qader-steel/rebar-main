@@ -2066,349 +2066,387 @@ class CustomerStatementReport(models.AbstractModel):
 
         # ======================================================
         # 6. PROCESS PARTNERS
+        #
+        # IMPORTANT: a partner can be MIXED (both customer moves
+        # and vendor moves selected at once, e.g. they buy from us
+        # AND sell to us). We must NEVER merge AR and AP into one
+        # running balance - that would net receivable against
+        # payable which is not correct accounting. Instead we
+        # build ONE statement PER (partner, party_type) pair.
         # ======================================================
 
         statements = []
 
         for partner in partners:
 
-            _logger.warning(
-                "PARTNER START | %s(%s)",
-                partner.name,
-                partner.id,
-            )
-
-            partner_selected = included_lines.filtered(
+            partner_all_selected = included_lines.filtered(
                 lambda l: l.partner_id == partner
-            ).sorted(
-                key=lambda l: (
-                    l.date,
-                    l.move_id.id,
-                    l.sequence,
-                    l.id,
-                )
             )
 
-            _logger.warning(
-                "PARTNER LINES | partner=%s | count=%s",
-                partner.id,
-                len(partner_selected),
-            )
-
-            # Determine the dominant party_type for this partner's
-            # selection (used for opening balance account_type).
-            # If the partner has both vendor and customer lines in
-            # the selection, we split the opening balance per type
-            # too, but typically a partner_selected batch is
-            # homogeneous (all invoices, or all bills, or mixed
-            # payments belonging to one side).
-            partner_party_types = {
+            partner_party_types_present = sorted({
                 line_party_type.get(l.id, 'customer')
-                for l in partner_selected
-            }
-
-            # ==================================================
-            # 7. OPENING BALANCE (split by customer/vendor account)
-            # ==================================================
-
-            opening_domain_base = [
-                ('partner_id', '=', partner.id),
-                ('parent_state', '=', 'posted'),
-                ('date', '<', date_from),
-            ]
-
-            opening_lines = self.env['account.move.line'].search(
-                opening_domain_base
-            )
-
-            opening_debit = 0.0
-            opening_credit = 0.0
-
-            for opening_line in opening_lines:
-                opening_party_type = self._get_party_type(
-                    opening_line.move_id
-                )
-
-                if opening_party_type not in partner_party_types:
-                    continue
-
-                if not self._should_include_line(
-                    opening_line, opening_party_type
-                ):
-                    continue
-
-                opening_debit += opening_line.debit or 0.0
-                opening_credit += opening_line.credit or 0.0
-
-            opening_balance = opening_debit - opening_credit
-
-            _logger.warning(
-                "OPENING | partner=%s | types=%s | "
-                "debit=%s | credit=%s | balance=%s",
-                partner.id,
-                partner_party_types,
-                opening_debit,
-                opening_credit,
-                opening_balance,
-            )
-
-            # ==================================================
-            # 8. RUNNING BALANCE
-            # ==================================================
-
-            balance = opening_balance
-
-            result_lines = []
-
-            total_qty = 0.0
-            total_debit = 0.0
-            total_credit = 0.0
-
-            invoice_moves = self.env['account.move']
-            payment_moves = self.env['account.move']
-
-            # ==================================================
-            # 9. PROCESS INCLUDED LINES
-            # ==================================================
-
-            for line in partner_selected:
-
-                move = line.move_id
-                account = line.account_id
-
-                raw_debit = line.debit or 0.0
-                raw_credit = line.credit or 0.0
-
-                is_payment = self._is_payment_move(move)
-                is_invoice = self._is_invoice_move(move)
-
-                # ------------------------------------------------
-                # REPORT DEBIT / CREDIT
-                # ------------------------------------------------
-
-                if is_payment:
-                    debit = raw_credit
-                    credit = raw_debit
-                    payment_moves |= move
-
-                else:
-                    debit = raw_debit
-                    credit = raw_credit
-
-                    if is_invoice:
-                        invoice_moves |= move
-
-                # ------------------------------------------------
-                # PRODUCT / DESCRIPTION
-                # ------------------------------------------------
-
-                if line.product_id:
-                    product = line.product_id.display_name
-                elif line.name:
-                    product = line.name
-                elif move.ref:
-                    product = move.ref
-                elif move.payment_reference:
-                    product = move.payment_reference
-                else:
-                    product = move.name
-
-                # ------------------------------------------------
-                # QUANTITY
-                # ------------------------------------------------
-
-                quantity = 0.0
-
-                if line.product_id:
-                    quantity = line.quantity or 0.0
-
-                # ------------------------------------------------
-                # UNIT PRICE
-                # ------------------------------------------------
-
-                unit_price = 0.0
-
-                if line.product_id:
-                    unit_price = line.price_unit or 0.0
-
-                # ------------------------------------------------
-                # MOVE KIND
-                # ------------------------------------------------
-
-                if is_invoice:
-                    move_kind = 'invoice'
-
-                elif is_payment:
-                    move_kind = 'payment'
-
-                else:
-                    move_kind = 'other'
-
-                # ------------------------------------------------
-                # RUNNING BALANCE
-                #
-                # IMPORTANT:
-                # Only ONE balance update.
-                # ------------------------------------------------
-
-                delta = debit - credit
-
-                balance += delta
-
-                # ------------------------------------------------
-                # TOTALS
-                # ------------------------------------------------
-
-                total_qty += quantity
-                total_debit += debit
-                total_credit += credit
-
-                # ------------------------------------------------
-                # RESULT ROW
-                # ------------------------------------------------
-
-                result_lines.append({
-                    'aml_id': line.id,
-                    'date': line.date,
-                    'transaction': move.name,
-                    'product': product,
-                    'description': line.name or '',
-                    'quantity': quantity,
-                    'unit_price': unit_price,
-                    'debit': debit,
-                    'credit': credit,
-                    'balance': balance,
-
-                    'account_id': (
-                        account.id
-                        if account
-                        else False
-                    ),
-
-                    'account_code': (
-                        account.code
-                        if account
-                        else ''
-                    ),
-
-                    'account_name': (
-                        account.name
-                        if account
-                        else ''
-                    ),
-
-                    'account_type': (
-                        account.account_type
-                        if account
-                        else ''
-                    ),
-
-                    'move_type': move.move_type,
-
-                    'move_kind': move_kind,
-
-                    'party_type': line_party_type.get(
-                        line.id, 'customer'
-                    ),
-
-                    'journal_name': (
-                        move.journal_id.name
-                        if move.journal_id
-                        else ''
-                    ),
-                })
-
-            # ==================================================
-            # 10. VALIDATION
-            # ==================================================
-
-            expected_closing = (
-                opening_balance
-                + total_debit
-                - total_credit
-            )
-
-            if abs(expected_closing - balance) > 0.0001:
-
-                _logger.error(
-                    "BALANCE ERROR | partner=%s | "
-                    "expected=%s | actual=%s",
-                    partner.id,
-                    expected_closing,
-                    balance,
-                )
-
-            else:
-
-                _logger.warning(
-                    "BALANCE OK | partner=%s | "
-                    "opening=%s | debit=%s | credit=%s | closing=%s",
-                    partner.id,
-                    opening_balance,
-                    total_debit,
-                    total_credit,
-                    balance,
-                )
-
-            # ==================================================
-            # 11. MOVE SUMMARY
-            # ==================================================
-
-            invoice_moves = invoice_moves.exists()
-            payment_moves = payment_moves.exists()
-
-            _logger.warning(
-                "MOVES | partner=%s | invoices=%s | payments=%s",
-                partner.id,
-                len(invoice_moves),
-                len(payment_moves),
-            )
-
-            # ==================================================
-            # 12. ROW COUNT VALIDATION
-            # ==================================================
-
-            if len(partner_selected) != len(result_lines):
-
-                _logger.error(
-                    "ROW COUNT ERROR | partner=%s | "
-                    "included=%s | rows=%s",
-                    partner.id,
-                    len(partner_selected),
-                    len(result_lines),
-                )
-
-            # ==================================================
-            # 13. APPEND STATEMENT
-            # ==================================================
-
-            statements.append({
-                'partner': partner,
-
-                'party_types': list(partner_party_types),
-
-                'opening_balance': opening_balance,
-
-                'lines': result_lines,
-
-                'closing_balance': balance,
-
-                'total_qty': total_qty,
-
-                'total_debit': total_debit,
-
-                'total_credit': total_credit,
-
-                'accounts': [],
+                for l in partner_all_selected
             })
 
             _logger.warning(
-                "PARTNER END | %s(%s) | rows=%s | closing=%s",
+                "PARTNER START | %s(%s) | party_types=%s",
                 partner.name,
                 partner.id,
-                len(result_lines),
-                balance,
+                partner_party_types_present,
             )
+
+            if len(partner_party_types_present) > 1:
+                _logger.warning(
+                    "MIXED PARTNER DETECTED | partner=%s | "
+                    "will split into %s separate statements",
+                    partner.id,
+                    len(partner_party_types_present),
+                )
+
+            # loop over each party_type this partner actually has
+            # (usually just one; two if mixed customer+vendor)
+            # -> produces a fully independent statement per type
+            # so AR and AP never get netted together.
+            for current_party_type in partner_party_types_present:
+
+                partner_selected = partner_all_selected.filtered(
+                    lambda l: line_party_type.get(l.id, 'customer')
+                    == current_party_type
+                ).sorted(
+                    key=lambda l: (
+                        l.date,
+                        l.move_id.id,
+                        l.sequence,
+                        l.id,
+                    )
+                )
+
+                _logger.warning(
+                    "PARTNER LINES | partner=%s | type=%s | count=%s",
+                    partner.id,
+                    current_party_type,
+                    len(partner_selected),
+                )
+
+                # ==============================================
+                # 7. OPENING BALANCE (for THIS party_type only)
+                # ==============================================
+
+                opening_domain_base = [
+                    ('partner_id', '=', partner.id),
+                    ('parent_state', '=', 'posted'),
+                    ('date', '<', date_from),
+                ]
+
+                opening_lines = self.env['account.move.line'].search(
+                    opening_domain_base
+                )
+
+                opening_debit = 0.0
+                opening_credit = 0.0
+
+                for opening_line in opening_lines:
+                    opening_party_type = self._get_party_type(
+                        opening_line.move_id
+                    )
+
+                    if opening_party_type != current_party_type:
+                        continue
+
+                    if not self._should_include_line(
+                        opening_line, opening_party_type
+                    ):
+                        continue
+
+                    opening_debit += opening_line.debit or 0.0
+                    opening_credit += opening_line.credit or 0.0
+
+                opening_balance = opening_debit - opening_credit
+
+                _logger.warning(
+                    "OPENING | partner=%s | type=%s | "
+                    "debit=%s | credit=%s | balance=%s",
+                    partner.id,
+                    current_party_type,
+                    opening_debit,
+                    opening_credit,
+                    opening_balance,
+                )
+
+                # ==============================================
+                # 8. RUNNING BALANCE
+                # ==============================================
+
+                balance = opening_balance
+
+                result_lines = []
+
+                total_qty = 0.0
+                total_debit = 0.0
+                total_credit = 0.0
+
+                invoice_moves = self.env['account.move']
+                payment_moves = self.env['account.move']
+
+                # ==============================================
+                # 9. PROCESS INCLUDED LINES
+                # ==============================================
+
+                for line in partner_selected:
+
+                    move = line.move_id
+                    account = line.account_id
+
+                    raw_debit = line.debit or 0.0
+                    raw_credit = line.credit or 0.0
+
+                    is_payment = self._is_payment_move(move)
+                    is_invoice = self._is_invoice_move(move)
+
+                    # ------------------------------------------
+                    # REPORT DEBIT / CREDIT
+                    # ------------------------------------------
+
+                    if is_payment:
+                        debit = raw_credit
+                        credit = raw_debit
+                        payment_moves |= move
+
+                    else:
+                        debit = raw_debit
+                        credit = raw_credit
+
+                        if is_invoice:
+                            invoice_moves |= move
+
+                    # ------------------------------------------
+                    # PRODUCT / DESCRIPTION
+                    # ------------------------------------------
+
+                    if line.product_id:
+                        product = line.product_id.display_name
+                    elif line.name:
+                        product = line.name
+                    elif move.ref:
+                        product = move.ref
+                    elif move.payment_reference:
+                        product = move.payment_reference
+                    else:
+                        product = move.name
+
+                    # ------------------------------------------
+                    # QUANTITY
+                    # ------------------------------------------
+
+                    quantity = 0.0
+
+                    if line.product_id:
+                        quantity = line.quantity or 0.0
+
+                    # ------------------------------------------
+                    # UNIT PRICE
+                    # ------------------------------------------
+
+                    unit_price = 0.0
+
+                    if line.product_id:
+                        unit_price = line.price_unit or 0.0
+
+                    # ------------------------------------------
+                    # MOVE KIND
+                    # ------------------------------------------
+
+                    if is_invoice:
+                        move_kind = 'invoice'
+
+                    elif is_payment:
+                        move_kind = 'payment'
+
+                    else:
+                        move_kind = 'other'
+
+                    # ------------------------------------------
+                    # RUNNING BALANCE
+                    #
+                    # IMPORTANT:
+                    # Only ONE balance update.
+                    # ------------------------------------------
+
+                    delta = debit - credit
+
+                    balance += delta
+
+                    # ------------------------------------------
+                    # TOTALS
+                    # ------------------------------------------
+
+                    total_qty += quantity
+                    total_debit += debit
+                    total_credit += credit
+
+                    # ------------------------------------------
+                    # RESULT ROW
+                    # ------------------------------------------
+
+                    result_lines.append({
+                        'aml_id': line.id,
+                        'date': line.date,
+                        'transaction': move.name,
+                        'product': product,
+                        'description': line.name or '',
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'debit': debit,
+                        'credit': credit,
+                        'balance': balance,
+
+                        'account_id': (
+                            account.id
+                            if account
+                            else False
+                        ),
+
+                        'account_code': (
+                            account.code
+                            if account
+                            else ''
+                        ),
+
+                        'account_name': (
+                            account.name
+                            if account
+                            else ''
+                        ),
+
+                        'account_type': (
+                            account.account_type
+                            if account
+                            else ''
+                        ),
+
+                        'move_type': move.move_type,
+
+                        'move_kind': move_kind,
+
+                        'party_type': line_party_type.get(
+                            line.id, 'customer'
+                        ),
+
+                        'journal_name': (
+                            move.journal_id.name
+                            if move.journal_id
+                            else ''
+                        ),
+                    })
+
+                # ==============================================
+                # 10. VALIDATION
+                # ==============================================
+
+                expected_closing = (
+                    opening_balance
+                    + total_debit
+                    - total_credit
+                )
+
+                if abs(expected_closing - balance) > 0.0001:
+
+                    _logger.error(
+                        "BALANCE ERROR | partner=%s | type=%s | "
+                        "expected=%s | actual=%s",
+                        partner.id,
+                        current_party_type,
+                        expected_closing,
+                        balance,
+                    )
+
+                else:
+
+                    _logger.warning(
+                        "BALANCE OK | partner=%s | type=%s | "
+                        "opening=%s | debit=%s | credit=%s | "
+                        "closing=%s",
+                        partner.id,
+                        current_party_type,
+                        opening_balance,
+                        total_debit,
+                        total_credit,
+                        balance,
+                    )
+
+                # ==============================================
+                # 11. MOVE SUMMARY
+                # ==============================================
+
+                invoice_moves = invoice_moves.exists()
+                payment_moves = payment_moves.exists()
+
+                _logger.warning(
+                    "MOVES | partner=%s | type=%s | "
+                    "invoices=%s | payments=%s",
+                    partner.id,
+                    current_party_type,
+                    len(invoice_moves),
+                    len(payment_moves),
+                )
+
+                # ==============================================
+                # 12. ROW COUNT VALIDATION
+                # ==============================================
+
+                if len(partner_selected) != len(result_lines):
+
+                    _logger.error(
+                        "ROW COUNT ERROR | partner=%s | type=%s | "
+                        "included=%s | rows=%s",
+                        partner.id,
+                        current_party_type,
+                        len(partner_selected),
+                        len(result_lines),
+                    )
+
+                # ==============================================
+                # 13. APPEND STATEMENT
+                # (one statement per partner PER party_type;
+                # a mixed partner produces two independent
+                # statements so AR and AP are never netted)
+                # ==============================================
+
+                statements.append({
+                    'partner': partner,
+
+                    'party_type': current_party_type,
+
+                    'party_types': partner_party_types_present,
+
+                    'is_mixed_partner': (
+                        len(partner_party_types_present) > 1
+                    ),
+
+                    'opening_balance': opening_balance,
+
+                    'lines': result_lines,
+
+                    'closing_balance': balance,
+
+                    'total_qty': total_qty,
+
+                    'total_debit': total_debit,
+
+                    'total_credit': total_credit,
+
+                    'accounts': [],
+                })
+
+                _logger.warning(
+                    "PARTNER TYPE END | %s(%s) | type=%s | "
+                    "rows=%s | closing=%s",
+                    partner.name,
+                    partner.id,
+                    current_party_type,
+                    len(result_lines),
+                    balance,
+                )
 
         # ======================================================
         # 14. GLOBAL VALIDATION
