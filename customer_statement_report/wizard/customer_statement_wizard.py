@@ -24,10 +24,8 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
+from odoo import api, models
 import logging
-
-from odoo import models, api
-
 
 _logger = logging.getLogger(__name__)
 
@@ -41,55 +39,11 @@ class CustomerStatementReport(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
 
-
         _logger.warning(
             "========== CUSTOMER STATEMENT START =========="
         )
 
-        _logger.warning(
-            "DOCIDS: %s",
-            docids
-        )
-
-
-        # =====================================================
-        # Selected journal items
-        # =====================================================
-
-        selected_lines = self.env['account.move.line'].browse(docids)
-
-
-        _logger.warning(
-            "SELECTED COUNT: %s",
-            len(selected_lines)
-        )
-
-
-        for l in selected_lines:
-
-            _logger.warning(
-                """
-                SELECTED LINE
-                ID=%s
-                MOVE=%s
-                TYPE=%s
-                PARTNER=%s
-                ACCOUNT=%s
-                DEBIT=%s
-                CREDIT=%s
-                """,
-                l.id,
-                l.move_id.name,
-                l.move_id.move_type,
-                l.partner_id.name,
-                l.account_id.code,
-                l.debit,
-                l.credit,
-            )
-
-
-
-        selected_lines = selected_lines.filtered(
+        selected_lines = self.env['account.move.line'].browse(docids).filtered(
             lambda l:
                 l.partner_id
                 and l.parent_state == 'posted'
@@ -100,57 +54,30 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
 
+        _logger.warning(
+            "SELECTED RECEIVABLE LINES = %s",
+            len(selected_lines)
+        )
+
+
         if not selected_lines:
-
-            _logger.warning(
-                "NO VALID SELECTED LINES"
-            )
-
-
             return {
                 'doc_ids': docids,
                 'doc_model': 'account.move.line',
                 'docs': selected_lines,
                 'statements': [],
-                'date_from': False,
-                'date_to': False,
             }
-
 
 
         partners = selected_lines.mapped('partner_id')
 
 
-        _logger.warning(
-            "PARTNERS: %s",
-            partners.mapped('name')
-        )
-
-
-        # =====================================================
-        # Date range from selected lines
-        # =====================================================
-
-
-        date_from = min(
-            selected_lines.mapped('date')
-        )
-
-        date_to = max(
-            selected_lines.mapped('date')
-        )
-
-
-        _logger.warning(
-            "DATE RANGE %s -> %s",
-            date_from,
-            date_to
-        )
+        date_from = min(selected_lines.mapped('date'))
+        date_to = max(selected_lines.mapped('date'))
 
 
 
         statements = []
-
 
 
         for partner in partners:
@@ -162,59 +89,7 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
 
-            account = (
-                partner.property_account_receivable_id
-                or partner.property_account_payable_id
-            )
-
-
-            if not account:
-
-                _logger.warning(
-                    "NO ACCOUNT FOR PARTNER %s",
-                    partner.name
-                )
-
-                continue
-
-
-
-            # =====================================================
-            # Opening balance
-            # =====================================================
-
-
-            opening_lines = self.env['account.move.line'].search([
-
-                ('partner_id','=',partner.id),
-
-                ('account_id','=',account.id),
-
-                ('parent_state','=','posted'),
-
-                ('date','<',date_from),
-
-            ])
-
-
-
-            opening_balance = (
-                sum(opening_lines.mapped('debit'))
-                -
-                sum(opening_lines.mapped('credit'))
-            )
-
-
-            _logger.warning(
-                "OPENING BALANCE %s",
-                opening_balance
-            )
-
-
-
-            # =====================================================
-            # ALL customer transactions
-            # =====================================================
+            account = partner.property_account_receivable_id
 
 
             moves = self.env['account.move.line'].search([
@@ -233,42 +108,47 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-            _logger.warning(
-                "MOVES COUNT %s",
-                len(moves)
-            )
+            opening_lines = self.env['account.move.line'].search([
 
+                ('partner_id','=',partner.id),
+
+                ('account_id','=',account.id),
+
+                ('parent_state','=','posted'),
+
+                ('date','<',date_from),
+
+            ])
+
+
+            opening_balance = sum(
+                opening_lines.mapped('debit')
+            ) - sum(
+                opening_lines.mapped('credit')
+            )
 
 
             balance = opening_balance
 
 
-            result_lines = []
+            result_lines=[]
 
-            total_qty = 0.0
-            total_debit = 0.0
-            total_credit = 0.0
+            total_debit=0
+            total_credit=0
+            total_qty=0
 
 
 
             for line in moves:
 
 
-                move = line.move_id
+                move=line.move_id
 
 
 
-                _logger.warning(
-                    "PROCESS MOVE %s TYPE %s",
-                    move.name,
-                    move.move_type
-                )
-
-
-
-                # =================================================
+                #
                 # Invoice
-                # =================================================
+                #
 
                 if move.move_type in (
                     'out_invoice',
@@ -280,80 +160,112 @@ class CustomerStatementReport(models.AbstractModel):
                     invoice_lines = move.invoice_line_ids.filtered(
                         lambda x:
                             not x.display_type
-                            and x.product_id
+                            and x.quantity != 0
                     )
 
 
-
                     _logger.warning(
-                        "INVOICE %s PRODUCT LINES %s",
+                        "INVOICE %s LINES=%s",
                         move.name,
                         len(invoice_lines)
                     )
 
 
-
-                    for il in invoice_lines:
-
+                    if invoice_lines:
 
 
-                        amount = il.price_subtotal
+                        for il in invoice_lines:
 
 
-
-                        if move.move_type == 'out_invoice':
-
-                            debit = amount
-                            credit = 0.0
-
-                        else:
-
-                            debit = 0.0
-                            credit = amount
+                            amount = il.price_subtotal
 
 
+                            if move.move_type == 'out_invoice':
 
-                        balance += debit - credit
+                                debit=amount
+                                credit=0
+
+
+                            else:
+
+                                debit=0
+                                credit=amount
 
 
 
-                        total_qty += il.quantity
+                            balance += debit-credit
 
-                        total_debit += debit
 
-                        total_credit += credit
+                            total_debit += debit
+                            total_credit += credit
+                            total_qty += il.quantity
 
+
+
+                            result_lines.append({
+
+                                'date':line.date,
+
+                                'transaction':
+                                    move.name,
+
+                                'product':
+                                    il.product_id.display_name
+                                    if il.product_id
+                                    else il.name,
+
+                                'quantity':
+                                    il.quantity,
+
+                                'unit_price':
+                                    il.price_unit,
+
+                                'debit':
+                                    debit,
+
+                                'credit':
+                                    credit,
+
+                                'balance':
+                                    balance,
+
+                            })
+
+
+                    else:
+
+                        #
+                        # fallback
+                        #
+
+                        debit=line.debit
+                        credit=line.credit
+
+
+                        balance += debit-credit
 
 
                         result_lines.append({
 
-                            'date':
-                                line.date,
-
+                            'date':line.date,
 
                             'transaction':
                                 move.name,
 
-
                             'product':
-                                il.product_id.display_name,
-
+                                line.name or '',
 
                             'quantity':
-                                il.quantity,
-
+                                None,
 
                             'unit_price':
-                                il.price_unit,
-
+                                None,
 
                             'debit':
                                 debit,
 
-
                             'credit':
                                 credit,
-
 
                             'balance':
                                 balance,
@@ -362,25 +274,21 @@ class CustomerStatementReport(models.AbstractModel):
 
 
 
-                # =================================================
-                # Payment / Journal
-                # =================================================
+                #
+                # Payment
+                #
 
                 else:
 
 
-                    debit = line.debit
-
-                    credit = line.credit
-
+                    debit=line.debit
+                    credit=line.credit
 
 
-                    balance += debit - credit
-
+                    balance += debit-credit
 
 
                     total_debit += debit
-
                     total_credit += credit
 
 
@@ -390,69 +298,29 @@ class CustomerStatementReport(models.AbstractModel):
                         'date':
                             line.date,
 
-
                         'transaction':
                             move.name,
-
 
                         'product':
                             line.name or '',
 
-
                         'quantity':
                             None,
-
 
                         'unit_price':
                             None,
 
-
                         'debit':
                             debit,
 
-
                         'credit':
                             credit,
-
 
                         'balance':
                             balance,
 
                     })
 
-
-
-
-            statements.append({
-
-                'partner':
-                    partner,
-
-
-                'opening_balance':
-                    opening_balance,
-
-
-                'lines':
-                    result_lines,
-
-
-                'closing_balance':
-                    balance,
-
-
-                'total_qty':
-                    total_qty,
-
-
-                'total_debit':
-                    total_debit,
-
-
-                'total_credit':
-                    total_credit,
-
-            })
 
 
 
@@ -473,6 +341,32 @@ class CustomerStatementReport(models.AbstractModel):
             )
 
 
+            statements.append({
+
+                'partner':
+                    partner,
+
+                'opening_balance':
+                    opening_balance,
+
+                'lines':
+                    result_lines,
+
+                'closing_balance':
+                    balance,
+
+                'total_qty':
+                    total_qty,
+
+                'total_debit':
+                    total_debit,
+
+                'total_credit':
+                    total_credit,
+
+            })
+
+
 
         _logger.warning(
             "STATEMENTS COUNT %s",
@@ -485,29 +379,22 @@ class CustomerStatementReport(models.AbstractModel):
         )
 
 
-
         return {
-
 
             'doc_ids':
                 docids,
 
-
             'doc_model':
                 'account.move.line',
-
 
             'docs':
                 selected_lines,
 
-
             'statements':
                 statements,
 
-
             'date_from':
                 date_from,
-
 
             'date_to':
                 date_to,
