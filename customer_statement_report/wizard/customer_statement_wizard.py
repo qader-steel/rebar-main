@@ -27,17 +27,21 @@ class CustomerStatementReport(models.AbstractModel):
     @api.model
     def _get_report_values(self, docids, data=None):
 
-        aml = self.env['account.move.line'].browse(docids)
+        # aml = self.env['account.move.line'].browse(docids)
+        partner_ids = data.get('partner_ids')
+        date_from = data.get('date_from')
+        date_to = data.get('date_to')
 
-        aml = aml.filtered(
-            lambda l:
-                l.partner_id
-                and l.parent_state == 'posted'
-                and l.account_id.account_type in (
-                    'asset_receivable',
-                    'liability_payable'
-                )
-        )
+        aml = self.env['account.move.line'].search([
+            ('partner_id','in',partner_ids),
+            ('parent_state','=','posted'),
+            ('account_id.account_type','in',(
+                'asset_receivable',
+                'liability_payable'
+            )),
+            ('date','>=',date_from),
+            ('date','<=',date_to),
+        ], order='date,id')
 
         partners = aml.mapped('partner_id')
 
