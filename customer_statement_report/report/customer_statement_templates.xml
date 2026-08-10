@@ -1,6 +1,7 @@
 <odoo>
 
     <template id="from_lines">
+
         <t t-call="web.html_container">
 
             <t t-foreach="statements" t-as="stmt_data">
@@ -14,7 +15,7 @@
                         <!-- ================================================= -->
 
                         <h2 class="text-center">
-                            Customer Statement Report (Balance)
+                            Customer Statement Report
                         </h2>
 
                         <div class="row mt-3 mb-3">
@@ -80,67 +81,98 @@
 
                             <tbody>
 
-                                <tr
-                                    t-foreach="stmt_data['lines']"
-                                    t-as="line"
-                                >
+                                <t t-foreach="stmt_data['lines']" t-as="line">
 
-                                    <!-- Date -->
-                                    <td t-esc="line['date']"/>
+                                    <tr>
 
-
-                                    <!-- Transaction -->
-                                    <td t-esc="line['transaction']"/>
+                                        <!-- Date -->
+                                        <td>
+                                            <span t-esc="line['date']"/>
+                                        </td>
 
 
-                                    <!-- Product / Description -->
-                                    <td t-esc="line['product']"/>
+                                        <!-- Transaction -->
+                                        <td>
+                                            <span t-esc="line['transaction']"/>
+                                        </td>
 
 
-                                    <!-- Quantity -->
-                                    <td>
-                                        <t t-if="line['quantity'] is not None">
-                                            <t t-esc="'{:,.3f}'.format(
-                                                line['quantity']
-                                            )"/>
-                                        </t>
-                                    </td>
+                                        <!-- Product / Description -->
+                                        <td style="white-space: pre-line;">
+                                            <span t-esc="line['product']"/>
+                                        </td>
 
 
-                                    <!-- Unit Price -->
-                                    <td>
-                                        <t t-if="line['unit_price'] is not None">
-                                            <t t-esc="'{:,.2f}'.format(
-                                                line['unit_price']
-                                            )"/>
-                                        </t>
-                                    </td>
+                                        <!-- Quantity -->
+                                        <td class="text-end">
+
+                                            <t t-if="line['quantity'] is not None">
+
+                                                <span>
+                                                    <t t-esc="'{:,.3f}'.format(
+                                                        line['quantity']
+                                                    )"/>
+                                                </span>
+
+                                            </t>
+
+                                        </td>
 
 
-                                    <!-- Debit -->
-                                    <td>
-                                        <t t-esc="'{:,.2f}'.format(
-                                            line['debit']
-                                        )"/>
-                                    </td>
+                                        <!-- Unit Price -->
+                                        <td class="text-end">
+
+                                            <t t-if="line['unit_price'] is not None">
+
+                                                <span>
+                                                    <t t-esc="'{:,.2f}'.format(
+                                                        line['unit_price']
+                                                    )"/>
+                                                </span>
+
+                                            </t>
+
+                                        </td>
 
 
-                                    <!-- Credit -->
-                                    <td>
-                                        <t t-esc="'{:,.2f}'.format(
-                                            line['credit']
-                                        )"/>
-                                    </td>
+                                        <!-- Debit -->
+                                        <td class="text-end">
+
+                                            <span>
+                                                <t t-esc="'{:,.2f}'.format(
+                                                    line['debit']
+                                                )"/>
+                                            </span>
+
+                                        </td>
 
 
-                                    <!-- Running Balance -->
-                                    <td>
-                                        <t t-esc="'{:,.2f}'.format(
-                                            line['balance']
-                                        )"/>
-                                    </td>
+                                        <!-- Credit -->
+                                        <td class="text-end">
 
-                                </tr>
+                                            <span>
+                                                <t t-esc="'{:,.2f}'.format(
+                                                    line['credit']
+                                                )"/>
+                                            </span>
+
+                                        </td>
+
+
+                                        <!-- Running Balance -->
+                                        <td class="text-end">
+
+                                            <strong>
+                                                <t t-esc="'{:,.2f}'.format(
+                                                    line['balance']
+                                                )"/>
+                                            </strong>
+
+                                        </td>
+
+                                    </tr>
+
+                                </t>
 
                             </tbody>
 
@@ -157,30 +189,43 @@
                                         Total
                                     </th>
 
-                                    <th>
+
+                                    <th class="text-end">
+
                                         <t t-esc="'{:,.3f}'.format(
                                             stmt_data['total_qty']
                                         )"/>
+
                                     </th>
+
 
                                     <th></th>
 
-                                    <th>
+
+                                    <th class="text-end">
+
                                         <t t-esc="'{:,.2f}'.format(
                                             stmt_data['total_debit']
                                         )"/>
+
                                     </th>
 
-                                    <th>
+
+                                    <th class="text-end">
+
                                         <t t-esc="'{:,.2f}'.format(
                                             stmt_data['total_credit']
                                         )"/>
+
                                     </th>
 
-                                    <th>
+
+                                    <th class="text-end">
+
                                         <t t-esc="'{:,.2f}'.format(
                                             stmt_data['closing_balance']
                                         )"/>
+
                                     </th>
 
                                 </tr>
@@ -266,12 +311,14 @@
                 </t>
 
 
-                <!-- Page break between partners -->
-                <p style="page-break-after: always;"/>
+                <t t-if="not stmt_data_last">
+                    <div style="page-break-after: always;"/>
+                </t>
 
             </t>
 
         </t>
+
     </template>
 
 

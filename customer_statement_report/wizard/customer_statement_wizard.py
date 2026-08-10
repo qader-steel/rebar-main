@@ -1,6 +1,5 @@
 from odoo import models, fields, api
-
-
+from odoo.tools.float_utils import float_is_zero
 
 
 class CustomerStatementReportFromLines(models.AbstractModel):
@@ -8,15 +7,16 @@ class CustomerStatementReportFromLines(models.AbstractModel):
     _description = 'Customer Statement Report From Journal Items'
 
     def _get_report_values(self, docids, data=None):
+
         MoveLine = self.env['account.move.line']
 
-        # ---------------------------------------------------------
-        # 1) السطور التي تم اختيارها من Journal Items
-        # ---------------------------------------------------------
+        # =========================================================
+        # 1. Journal Items التي قام المستخدم باختيارها
+        # =========================================================
+
         selected_lines = MoveLine.browse(docids).exists()
 
-        # نحتاج فقط إلى سطور العملاء:
-        # Receivable / Payable
+        # فقط الحركات المالية الخاصة بالعملاء / الموردين
         lines = selected_lines.filtered(
             lambda l:
                 l.partner_id
@@ -37,72 +37,87 @@ class CustomerStatementReportFromLines(models.AbstractModel):
                 'date_to': False,
             }
 
-        # ---------------------------------------------------------
-        # 2) الفترة الزمنية للتقرير
-        # ---------------------------------------------------------
+        # =========================================================
+        # 2. فترة التقرير
+        # =========================================================
+
         date_from = min(lines.mapped('date'))
         date_to = max(lines.mapped('date'))
 
-        # ---------------------------------------------------------
-        # 3) العملاء
-        # ---------------------------------------------------------
+        # =========================================================
+        # 3. العملاء
+        # =========================================================
+
         partners = lines.mapped('partner_id')
 
         statements = []
 
         for partner in partners:
 
-            # -----------------------------------------------------
-            # 4) حركات العميل ضمن الفترة
-            # -----------------------------------------------------
+            # =====================================================
+            # 4. حركات العميل داخل الفترة
+            # =====================================================
+
             partner_lines = lines.filtered(
                 lambda l: l.partner_id == partner
             ).sorted(
                 key=lambda l: (l.date, l.id)
             )
 
-            # -----------------------------------------------------
-            # 5) الرصيد الافتتاحي
-            #
-            # كل حركات العميل قبل date_from
-            # -----------------------------------------------------
+            # =====================================================
+            # 5. الرصيد الافتتاحي
+            # =====================================================
+
             opening_lines = MoveLine.search([
                 ('partner_id', '=', partner.id),
                 ('parent_state', '=', 'posted'),
                 (
                     'account_id.account_type',
                     'in',
-                    ('asset_receivable', 'liability_payable'),
+                    (
+                        'asset_receivable',
+                        'liability_payable',
+                    ),
                 ),
                 ('date', '<', date_from),
             ])
 
-            opening_balance = sum(opening_lines.mapped('balance'))
+            opening_balance = sum(
+                opening_lines.mapped('balance')
+            )
 
-            # الرصيد الجاري يبدأ من الرصيد الافتتاحي
             running_balance = opening_balance
 
-            # -----------------------------------------------------
-            # 6) بيانات التقرير
-            # -----------------------------------------------------
+            # =====================================================
+            # 6. بيانات التقرير
+            # =====================================================
+
             result_lines = []
 
             total_qty = 0.0
             total_debit = 0.0
             total_credit = 0.0
 
-            # -----------------------------------------------------
-            # 7) معالجة كل حركة
-            # -----------------------------------------------------
+            # =====================================================
+            # 7. معالجة كل حركة
+            # =====================================================
+
             for line in partner_lines:
 
                 move = line.move_id
 
+                debit = line.debit or 0.0
+                credit = line.credit or 0.0
+                balance = line.balance or 0.0
+
                 # =================================================
-                # الحالة الأولى:
-                # فاتورة بيع / مردود بيع
+                # الفاتورة / مردود البيع
                 # =================================================
-                if move.move_type in ('out_invoice', 'out_refund'):
+
+                if move.move_type in (
+                    'out_invoice',
+                    'out_refund',
+                ):
 
                     invoice_lines = move.invoice_line_ids.filtered(
                         lambda il:
@@ -111,134 +126,147 @@ class CustomerStatementReportFromLines(models.AbstractModel):
                     )
 
                     # -------------------------------------------------
-                    # نريد هنا "حركة العميل" نفسها وليس Sales Account.
-                    #
-                    # مثال:
-                    #
-                    # INV/2026/00044
-                    # Accounts Receivable
-                    # Debit = 39,424,000
-                    #
-                    # لذلك نستخدم line.debit / line.credit
-                    # وليس il.price_subtotal.
+                    # المنتجات
                     # -------------------------------------------------
 
-                    if invoice_lines:
+                    product_names = []
+                    quantities = []
+                    unit_prices = []
 
-                        # الوصف الذي يظهر في كشف المدير:
-                        # S00072 - INV/2026/00044
-                        description = line.name or ''
+                    for invoice_line in invoice_lines:
 
-                        # الحركة المحاسبية الفعلية للعميل
-                        debit = line.debit
-                        credit = line.credit
+                        if invoice_line.product_id:
+                            product_names.append(
+                                invoice_line.product_id.display_name
+                            )
 
-                        # تحديث الرصيد
-                        running_balance += line.balance
-
-                        total_debit += debit
-                        total_credit += credit
-
-                        # -------------------------------------------------
-                        # الكمية:
-                        #
-                        # إذا كانت الفاتورة تحتوي أكثر من منتج،
-                        # لا نكرر المبلغ المحاسبي لكل منتج.
-                        #
-                        # التقرير الحالي المطلوب يشبه كشف الحساب
-                        # وليس فاتورة تفصيلية.
-                        # لذلك نجمع الكمية فقط.
-                        # -------------------------------------------------
-                        quantity = sum(
-                            invoice_lines.mapped('quantity')
+                        quantities.append(
+                            invoice_line.quantity or 0.0
                         )
 
+                        unit_prices.append(
+                            invoice_line.price_unit or 0.0
+                        )
+
+                    # -------------------------------------------------
+                    # Product / Description
+                    #
+                    # نعرض المنتجات فعلياً بدلاً من line.name
+                    # -------------------------------------------------
+
+                    if product_names:
+                        product_description = '\n'.join(
+                            product_names
+                        )
+                    else:
+                        product_description = (
+                            line.name or move.ref or ''
+                        )
+
+                    # -------------------------------------------------
+                    # Quantity
+                    #
+                    # مجموع الكميات
+                    # -------------------------------------------------
+
+                    quantity = (
+                        sum(quantities)
+                        if quantities
+                        else None
+                    )
+
+                    # -------------------------------------------------
+                    # Unit Price
+                    #
+                    # إذا منتج واحد فقط:
+                    # نعرض سعره.
+                    #
+                    # إذا عدة منتجات:
+                    # نتركه فارغاً لأنه لا يوجد
+                    # Unit Price واحد يمثل الفاتورة.
+                    # -------------------------------------------------
+
+                    if len(unit_prices) == 1:
+                        unit_price = unit_prices[0]
+                    else:
+                        unit_price = None
+
+                    # -------------------------------------------------
+                    # الرصيد
+                    #
+                    # مهم جداً:
+                    # نستخدم السطر المحاسبي وليس invoice total
+                    # -------------------------------------------------
+
+                    running_balance += balance
+
+                    total_debit += debit
+                    total_credit += credit
+
+                    if quantity is not None:
                         total_qty += quantity
 
-                        # -------------------------------------------------
-                        # سعر الوحدة:
-                        #
-                        # إذا كان هناك منتج واحد فقط نعرض سعره.
-                        # إذا كانت عدة منتجات نتركه فارغًا لأن
-                        # وضع سعر واحد سيكون مضللًا.
-                        # -------------------------------------------------
-                        unit_price = (
-                            invoice_lines[0].price_unit
-                            if len(invoice_lines) == 1
-                            else None
-                        )
-
-                        # -------------------------------------------------
-                        # اسم المنتج:
-                        #
-                        # في التقرير الذي طلبته أنت:
-                        #
-                        # S00072 - INV/2026/00044
-                        #
-                        # وليس اسم المنتج.
-                        # -------------------------------------------------
-                        product_description = description
-
-                        result_lines.append({
-                            'date': line.date,
-                            'transaction': move.name,
-                            'product': product_description,
-                            'quantity': quantity,
-                            'unit_price': unit_price,
-                            'debit': debit,
-                            'credit': credit,
-                            'balance': running_balance,
-                        })
-
-                    else:
-                        # فاتورة بدون Product Line
-                        running_balance += line.balance
-
-                        total_debit += line.debit
-                        total_credit += line.credit
-
-                        result_lines.append({
-                            'date': line.date,
-                            'transaction': move.name,
-                            'product': line.name or '',
-                            'quantity': None,
-                            'unit_price': None,
-                            'debit': line.debit,
-                            'credit': line.credit,
-                            'balance': running_balance,
-                        })
-
-                # =================================================
-                # الحالة الثانية:
-                # أي حركة أخرى:
-                #
-                # Payment
-                # Receipt
-                # Manual Entry
-                # Credit Note
-                # إلخ
-                # =================================================
-                else:
-
-                    running_balance += line.balance
-
-                    total_debit += line.debit
-                    total_credit += line.credit
+                    # -------------------------------------------------
+                    # سطر الفاتورة
+                    # -------------------------------------------------
 
                     result_lines.append({
                         'date': line.date,
                         'transaction': move.name,
-                        'product': line.name or '',
-                        'quantity': None,
-                        'unit_price': None,
-                        'debit': line.debit,
-                        'credit': line.credit,
+                        'product': product_description,
+                        'quantity': quantity,
+                        'unit_price': unit_price,
+                        'debit': debit,
+                        'credit': credit,
                         'balance': running_balance,
                     })
 
-            # -----------------------------------------------------
-            # 8) إضافة كشف العميل
-            # -----------------------------------------------------
+                # =================================================
+                # Payment / Entry / Receipt / Credit Note ...
+                # =================================================
+
+                else:
+
+                    running_balance += balance
+
+                    total_debit += debit
+                    total_credit += credit
+
+                    # -------------------------------------------------
+                    # تحديد وصف أفضل للحركة
+                    # -------------------------------------------------
+
+                    payment = self.env['account.payment'].search([
+                        ('move_id', '=', move.id),
+                    ], limit=1)
+
+                    if payment:
+                        if payment.memo:
+                            description = 'Payment - %s' % payment.memo
+                        else:
+                            description = 'Payment'
+                    else:
+                        description = (
+                            line.name
+                            or move.ref
+                            or ''
+                        )
+
+                    result_lines.append({
+                        'date': line.date,
+                        'transaction': move.name,
+                        'product': description,
+                        'quantity': None,
+                        'unit_price': None,
+                        'debit': debit,
+                        'credit': credit,
+                        'balance': running_balance,
+                    })
+
+            # =====================================================
+            # 8. كشف العميل
+            # =====================================================
+
             statements.append({
                 'partner': partner,
                 'opening_balance': opening_balance,
@@ -249,9 +277,10 @@ class CustomerStatementReportFromLines(models.AbstractModel):
                 'total_credit': total_credit,
             })
 
-        # ---------------------------------------------------------
-        # 9) البيانات التي تصل إلى QWeb
-        # ---------------------------------------------------------
+        # =========================================================
+        # 9. QWeb values
+        # =========================================================
+
         return {
             'doc_ids': docids,
             'doc_model': 'account.move.line',
@@ -260,8 +289,6 @@ class CustomerStatementReportFromLines(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
-
-
 
 
 
