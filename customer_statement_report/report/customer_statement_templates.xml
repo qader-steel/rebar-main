@@ -298,41 +298,6 @@
 
     <t t-call="web.html_container">
 
-        <style>
-            * { box-sizing: border-box; }
-
-            .page { font-size: 6pt; line-height: 1.1; }
-
-            table.statement-table {
-                width: 100%;
-                table-layout: fixed;
-                border-collapse: collapse;
-                font-size: 5pt;
-            }
-
-            .statement-table th,
-            .statement-table td {
-                padding: 1px 2px;
-                font-size: 5pt;
-                line-height: 1.05;
-                white-space: normal;
-                word-break: break-all;
-                overflow-wrap: anywhere;
-                min-width: 0;
-                max-width: 0; /* forces table-layout:fixed to respect % width in wkhtmltopdf */
-            }
-
-            .statement-table th:nth-child(1), .statement-table td:nth-child(1) { width: 7%; }
-            .statement-table th:nth-child(2), .statement-table td:nth-child(2) { width: 12%; }
-            .statement-table th:nth-child(3), .statement-table td:nth-child(3) { width: 24%; }
-            .statement-table th:nth-child(4), .statement-table td:nth-child(4) { width: 8%; }
-            .statement-table th:nth-child(5), .statement-table td:nth-child(5) { width: 10%; }
-            .statement-table th:nth-child(6), .statement-table td:nth-child(6) { width: 12%; }
-            .statement-table th:nth-child(7), .statement-table td:nth-child(7) { width: 12%; }
-            .statement-table th:nth-child(8), .statement-table td:nth-child(8) { width: 15%; }
-        </style>
-
-
         <!-- =========================================================
              LOOP THROUGH STATEMENTS
              ========================================================= -->

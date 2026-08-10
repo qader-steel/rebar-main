@@ -11,6 +11,11 @@
         'report/customer_statement_report.xml',
         'report/customer_statement_templates.xml',
     ],
+    'assets': {
+        'web.report_assets_common': [
+            'your_module/static/src/css/statement_report.css',
+        ],
+    },
     'installable': True,
     'license': 'LGPL-3',
 }
