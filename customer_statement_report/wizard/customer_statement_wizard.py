@@ -18,165 +18,83 @@ class CustomerStatementReport(models.AbstractModel):
         }
 
 
-
 class CustomerStatementReportFromLines(models.AbstractModel):
     _name = 'report.customer_statement_report.from_lines'
     _description = 'Customer Statement Report From Journal Items'
 
     def _get_report_values(self, docids, data=None):
-
-        MoveLine = self.env['account.move.line']
-
-        # السطور المرحّلة التي تخص العملاء/الموردين
-        lines = MoveLine.browse(docids).filtered(
-            lambda l:
-                l.partner_id
-                and l.parent_state == 'posted'
-                and l.account_id.account_type in (
-                    'asset_receivable',
-                    'liability_payable',
-                )
+        lines = self.env['account.move.line'].browse(docids)
+        lines = lines.filtered(
+            lambda l: l.partner_id and l.parent_state == 'posted'
+            and l.account_id.account_type in ('asset_receivable', 'liability_payable')
         )
 
-        if not lines:
-            return {
-                'doc_ids': docids,
-                'doc_model': 'account.move.line',
-                'docs': lines,
-                'statements': [],
-                'date_from': False,
-                'date_to': False,
-            }
-
         partners = lines.mapped('partner_id')
-
-        date_from = min(lines.mapped('date'))
-        date_to = max(lines.mapped('date'))
+        date_from = min(lines.mapped('date')) if lines else False
+        date_to = max(lines.mapped('date')) if lines else False
 
         statements = []
-
         for partner in partners:
-
-            # ---------------------------------------------------------
-            # 1. حركات هذا العميل ضمن الفترة
-            # ---------------------------------------------------------
-
-            partner_lines = lines.filtered(
-                lambda l: l.partner_id == partner
-            ).sorted(
-                key=lambda l: (l.date, l.move_id.name, l.id)
+            partner_lines = lines.filtered(lambda l: l.partner_id == partner).sorted(
+                key=lambda l: (l.date, l.id)
             )
 
-            # ---------------------------------------------------------
-            # 2. الرصيد الافتتاحي
-            # ---------------------------------------------------------
-
-            opening_lines = MoveLine.search([
+            opening_lines = self.env['account.move.line'].search([
                 ('partner_id', '=', partner.id),
                 ('parent_state', '=', 'posted'),
-                ('account_id.account_type', 'in', (
-                    'asset_receivable',
-                    'liability_payable',
-                )),
+                ('account_id.account_type', 'in', ('asset_receivable', 'liability_payable')),
                 ('date', '<', date_from),
             ])
-
             opening_balance = sum(opening_lines.mapped('balance'))
-
             balance = opening_balance
 
-            # ---------------------------------------------------------
-            # 3. النتائج
-            # ---------------------------------------------------------
-
             result_lines = []
-
             total_qty = 0.0
             total_debit = 0.0
             total_credit = 0.0
 
-            for line in partner_lines:
+            for l in partner_lines:
+                move = l.move_id
+                invoice_lines = move.invoice_line_ids.filtered(
+                    lambda il: not il.display_type and il.product_id
+                )
 
-                move = line.move_id
-
-                # =====================================================
-                # فاتورة عميل
-                # =====================================================
-
-                if move.move_type in ('out_invoice', 'out_refund'):
-
-                    invoice_lines = move.invoice_line_ids.filtered(
-                        lambda il:
-                            not il.display_type
-                            and il.product_id
-                    )
-
-                    if invoice_lines:
-
-                        for invoice_line in invoice_lines:
-
-                            # قيمة سطر المنتج بدون الضريبة
-                            amount = invoice_line.price_subtotal
-
-                            # الفاتورة العادية:
-                            # العميل يصبح مديناً لنا
-                            #
-                            # الفاتورة المرتجعة:
-                            # نعكس الإشارة
-
-                            if move.move_type == 'out_refund':
-                                amount = -amount
-
-                            debit = max(amount, 0.0)
-                            credit = max(-amount, 0.0)
-
-                            balance += amount
-
-                            total_qty += invoice_line.quantity
-                            total_debit += debit
-                            total_credit += credit
-
-                            result_lines.append({
-                                'date': line.date,
-                                'transaction': move.name,
-                                'product': invoice_line.product_id.display_name,
-                                'quantity': invoice_line.quantity,
-                                'unit_price': invoice_line.price_unit,
-                                'debit': debit,
-                                'credit': credit,
-                                'balance': balance,
-                                'label': invoice_line.name or '',
-                            })
-
-                        continue
-
-                # =====================================================
-                # أي حركة أخرى:
-                # سند قبض / دفع / قيد يدوي / تسوية ...
-                # =====================================================
-
-                amount = line.balance
-
-                balance += amount
-
-                total_debit += line.debit
-                total_credit += line.credit
-
-                result_lines.append({
-                    'date': line.date,
-                    'transaction': move.name,
-                    'product': '',
-                    'quantity': '',
-                    'unit_price': '',
-                    'debit': line.debit,
-                    'credit': line.credit,
-                    'balance': balance,
-                    'label': line.name or '',
-                })
-
-            # ---------------------------------------------------------
-            # 4. كشف العميل
-            # ---------------------------------------------------------
+                if invoice_lines:
+                    # فاتورة بيع أو مردود: سطر مستقل لكل منتج بقيمته الخاصة
+                    sign = 1 if l.debit else -1
+                    for il in invoice_lines:
+                        amount = il.price_subtotal
+                        debit = amount if sign > 0 else 0.0
+                        credit = amount if sign < 0 else 0.0
+                        balance += debit - credit
+                        total_debit += debit
+                        total_credit += credit
+                        total_qty += il.quantity
+                        result_lines.append({
+                            'date': l.date,
+                            'transaction': move.name,
+                            'product': il.product_id.display_name,
+                            'quantity': il.quantity,
+                            'unit_price': il.price_unit,
+                            'debit': debit,
+                            'credit': credit,
+                            'balance': balance,
+                        })
+                else:
+                    # دفعة / تسوية يدوية بلا منتج
+                    balance += l.balance
+                    total_debit += l.debit
+                    total_credit += l.credit
+                    result_lines.append({
+                        'date': l.date,
+                        'transaction': move.name,
+                        'product': l.name or '',
+                        'quantity': None,
+                        'unit_price': None,
+                        'debit': l.debit,
+                        'credit': l.credit,
+                        'balance': balance,
+                    })
 
             statements.append({
                 'partner': partner,
@@ -196,6 +114,12 @@ class CustomerStatementReportFromLines(models.AbstractModel):
             'date_from': date_from,
             'date_to': date_to,
         }
+
+
+
+
+
+
 
 class CustomerStatementWizard(models.TransientModel):
     _name = 'customer.statement.wizard'
