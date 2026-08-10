@@ -1842,46 +1842,19 @@ class CustomerStatementReport(models.AbstractModel):
         return True
 
     def _should_include_line(self, line):
-        """
-        MAIN BUSINESS RULE.
-
-        1. Invoice / Bill / Refund:
-           -> ONLY product lines.
-
-        2. Payment / Cash / Bank:
-           -> ALL lines.
-
-        3. Other journal entries:
-           -> Only lines that have a product.
-
-        This prevents the invoice receivable/payable line
-        from appearing as an additional transaction.
-        """
-
         move = line.move_id
-
-        # ------------------------------------------------------
-        # INVOICE / BILL / REFUND
-        # ------------------------------------------------------
 
         if self._is_invoice_move(move):
             return self._is_product_line(line)
 
-        # ------------------------------------------------------
-        # PAYMENT / CASH / BANK
-        # ------------------------------------------------------
-
         if self._is_payment_move(move):
-            return True
-
-        # ------------------------------------------------------
-        # OTHER JOURNAL ENTRIES
-        #
-        # Do not pull pure accounting counterpart lines.
-        # Only product lines are relevant to the statement.
-        # ------------------------------------------------------
+            return line.account_id.account_type in (
+                'asset_receivable',
+                'liability_payable',
+            )
 
         return self._is_product_line(line)
+
 
     # ==========================================================
     # MAIN REPORT
@@ -2132,21 +2105,13 @@ class CustomerStatementReport(models.AbstractModel):
                 ('date', '<', date_from),
             ]
 
-            opening_lines = self.env['account.move.line'].search(
-                opening_domain
-            )
+            opening_lines = self.env['account.move.line'].search(opening_domain)
 
-            opening_debit = sum(
-                opening_lines.mapped('debit')
-            )
+            opening_included = opening_lines.filtered(self._should_include_line)
 
-            opening_credit = sum(
-                opening_lines.mapped('credit')
-            )
-
-            opening_balance = (
-                opening_debit - opening_credit
-            )
+            opening_debit = sum(opening_included.mapped('debit'))
+            opening_credit = sum(opening_included.mapped('credit'))
+            opening_balance = opening_debit - opening_credit
 
             _logger.warning(
                 "OPENING | partner=%s | lines=%s | "
