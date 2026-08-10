@@ -322,26 +322,24 @@
                         </div>
 
                         <div class="col-3">
-                            <strong>Initial Balance:</strong>
-
+                            <strong>Opening Balance:</strong>
                             <span>
                                 <t t-esc="'{:,.2f}'.format(
                                     stmt_data['opening_balance']
                                 )"/>
                             </span>
-
-                            IQD
+                            <span>
+                                <t t-esc="stmt_data['company'].currency_id.name"/>
+                            </span>
                         </div>
 
                         <div class="col-3">
                             <strong>From:</strong>
-
                             <span t-esc="date_from"/>
                         </div>
 
                         <div class="col-3">
                             <strong>To:</strong>
-
                             <span t-esc="date_to"/>
                         </div>
 
@@ -349,7 +347,28 @@
 
 
                     <!-- ================================================= -->
-                    <!-- Statement Table -->
+                    <!-- Account -->
+                    <!-- ================================================= -->
+
+                    <div class="row mb-3">
+
+                        <div class="col-6">
+                            <strong>Account:</strong>
+                            <span t-esc="stmt_data['account'].code"/>
+                            -
+                            <span t-esc="stmt_data['account'].name"/>
+                        </div>
+
+                        <div class="col-6">
+                            <strong>Currency:</strong>
+                            <span t-esc="stmt_data['company'].currency_id.name"/>
+                        </div>
+
+                    </div>
+
+
+                    <!-- ================================================= -->
+                    <!-- Statement -->
                     <!-- ================================================= -->
 
                     <table class="table table-sm table-bordered">
@@ -362,27 +381,25 @@
 
                                 <th>Transaction</th>
 
-                                <th>
-                                    Product / Description
-                                </th>
+                                <th>Product / Description</th>
 
-                                <th>
+                                <th class="text-end">
                                     Quantity
                                 </th>
 
-                                <th>
+                                <th class="text-end">
                                     Unit Price
                                 </th>
 
-                                <th>
+                                <th class="text-end">
                                     Debit
                                 </th>
 
-                                <th>
+                                <th class="text-end">
                                     Credit
                                 </th>
 
-                                <th>
+                                <th class="text-end">
                                     Balance
                                 </th>
 
@@ -392,6 +409,57 @@
 
 
                         <tbody>
+
+                            <!-- Opening Balance -->
+
+                            <tr>
+
+                                <td>
+                                    <span t-esc="date_from"/>
+                                </td>
+
+                                <td>
+                                    Opening
+                                </td>
+
+                                <td>
+                                    Opening Balance
+                                </td>
+
+                                <td></td>
+
+                                <td></td>
+
+                                <td class="text-end">
+                                    <t t-if="stmt_data['opening_balance'] &gt; 0">
+                                        <t t-esc="'{:,.2f}'.format(
+                                            stmt_data['opening_balance']
+                                        )"/>
+                                    </t>
+                                </td>
+
+                                <td class="text-end">
+                                    <t t-if="stmt_data['opening_balance'] &lt; 0">
+                                        <t t-esc="'{:,.2f}'.format(
+                                            -stmt_data['opening_balance']
+                                        )"/>
+                                    </t>
+                                </td>
+
+                                <td class="text-end">
+
+                                    <strong>
+                                        <t t-esc="'{:,.2f}'.format(
+                                            stmt_data['opening_balance']
+                                        )"/>
+                                    </strong>
+
+                                </td>
+
+                            </tr>
+
+
+                            <!-- Transaction Lines -->
 
                             <t
                                 t-foreach="stmt_data['lines']"
@@ -403,29 +471,23 @@
                                     <!-- Date -->
 
                                     <td>
-                                        <span
-                                            t-esc="line['date']"
-                                        />
+                                        <span t-esc="line['date']"/>
                                     </td>
 
 
                                     <!-- Transaction -->
 
                                     <td>
-                                        <span
-                                            t-esc="line['transaction']"
-                                        />
+                                        <span t-esc="line['transaction']"/>
                                     </td>
 
 
-                                    <!-- Description -->
+                                    <!-- Product / Description -->
 
-                                    <td
-                                        style="white-space: pre-line;"
-                                    >
-                                        <span
-                                            t-esc="line['product']"
-                                        />
+                                    <td style="white-space: pre-line;">
+
+                                        <span t-esc="line['product']"/>
+
                                     </td>
 
 
@@ -438,11 +500,9 @@
                                         >
 
                                             <span>
-                                                <t
-                                                    t-esc="'{:,.3f}'.format(
-                                                        line['quantity']
-                                                    )"
-                                                />
+                                                <t t-esc="'{:,.3f}'.format(
+                                                    line['quantity']
+                                                )"/>
                                             </span>
 
                                         </t>
@@ -459,11 +519,9 @@
                                         >
 
                                             <span>
-                                                <t
-                                                    t-esc="'{:,.2f}'.format(
-                                                        line['unit_price']
-                                                    )"
-                                                />
+                                                <t t-esc="'{:,.2f}'.format(
+                                                    line['unit_price']
+                                                )"/>
                                             </span>
 
                                         </t>
@@ -475,11 +533,11 @@
 
                                     <td class="text-end">
 
-                                        <t
-                                            t-esc="'{:,.2f}'.format(
+                                        <span>
+                                            <t t-esc="'{:,.2f}'.format(
                                                 line['debit']
-                                            )"
-                                        />
+                                            )"/>
+                                        </span>
 
                                     </td>
 
@@ -488,26 +546,24 @@
 
                                     <td class="text-end">
 
-                                        <t
-                                            t-esc="'{:,.2f}'.format(
+                                        <span>
+                                            <t t-esc="'{:,.2f}'.format(
                                                 line['credit']
-                                            )"
-                                        />
+                                            )"/>
+                                        </span>
 
                                     </td>
 
 
-                                    <!-- Balance -->
+                                    <!-- Running Balance -->
 
                                     <td class="text-end">
 
                                         <strong>
 
-                                            <t
-                                                t-esc="'{:,.2f}'.format(
-                                                    line['balance']
-                                                )"
-                                            />
+                                            <t t-esc="'{:,.2f}'.format(
+                                                line['balance']
+                                            )"/>
 
                                         </strong>
 
@@ -529,17 +585,15 @@
                             <tr>
 
                                 <th colspan="3">
-                                    Total
+                                    Period Total
                                 </th>
 
 
                                 <th class="text-end">
 
-                                    <t
-                                        t-esc="'{:,.3f}'.format(
-                                            stmt_data['total_qty']
-                                        )"
-                                    />
+                                    <t t-esc="'{:,.3f}'.format(
+                                        stmt_data['total_qty']
+                                    )"/>
 
                                 </th>
 
@@ -549,33 +603,27 @@
 
                                 <th class="text-end">
 
-                                    <t
-                                        t-esc="'{:,.2f}'.format(
-                                            stmt_data['total_debit']
-                                        )"
-                                    />
+                                    <t t-esc="'{:,.2f}'.format(
+                                        stmt_data['total_debit']
+                                    )"/>
 
                                 </th>
 
 
                                 <th class="text-end">
 
-                                    <t
-                                        t-esc="'{:,.2f}'.format(
-                                            stmt_data['total_credit']
-                                        )"
-                                    />
+                                    <t t-esc="'{:,.2f}'.format(
+                                        stmt_data['total_credit']
+                                    )"/>
 
                                 </th>
 
 
                                 <th class="text-end">
 
-                                    <t
-                                        t-esc="'{:,.2f}'.format(
-                                            stmt_data['closing_balance']
-                                        )"
-                                    />
+                                    <t t-esc="'{:,.2f}'.format(
+                                        stmt_data['closing_balance']
+                                    )"/>
 
                                 </th>
 
@@ -592,23 +640,70 @@
 
                     <div class="row mt-3">
 
-                        <div class="col-6">
+                        <div class="col-4">
 
                             <strong>
-                                Current Balance:
+                                Opening Balance:
                             </strong>
 
                             <span>
-
-                                <t
-                                    t-esc="'{:,.2f}'.format(
-                                        stmt_data['closing_balance']
-                                    )"
-                                />
-
+                                <t t-esc="'{:,.2f}'.format(
+                                    stmt_data['opening_balance']
+                                )"/>
                             </span>
 
-                            IQD
+                        </div>
+
+
+                        <div class="col-4">
+
+                            <strong>
+                                Total Debit:
+                            </strong>
+
+                            <span>
+                                <t t-esc="'{:,.2f}'.format(
+                                    stmt_data['total_debit']
+                                )"/>
+                            </span>
+
+                        </div>
+
+
+                        <div class="col-4">
+
+                            <strong>
+                                Total Credit:
+                            </strong>
+
+                            <span>
+                                <t t-esc="'{:,.2f}'.format(
+                                    stmt_data['total_credit']
+                                )"/>
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="row mt-3">
+
+                        <div class="col-6">
+
+                            <strong>
+                                Closing Balance:
+                            </strong>
+
+                            <span>
+                                <t t-esc="'{:,.2f}'.format(
+                                    stmt_data['closing_balance']
+                                )"/>
+                            </span>
+
+                            <span>
+                                <t t-esc="stmt_data['company'].currency_id.name"/>
+                            </span>
 
                         </div>
 
@@ -616,20 +711,18 @@
                         <div class="col-6">
 
                             <strong>
-                                Final Account Balance:
+                                Account Balance:
                             </strong>
 
                             <span>
-
-                                <t
-                                    t-esc="'{:,.2f}'.format(
-                                        stmt_data['closing_balance']
-                                    )"
-                                />
-
+                                <t t-esc="'{:,.2f}'.format(
+                                    stmt_data['closing_balance']
+                                )"/>
                             </span>
 
-                            IQD
+                            <span>
+                                <t t-esc="stmt_data['company'].currency_id.name"/>
+                            </span>
 
                         </div>
 
@@ -640,7 +733,7 @@
                     <!-- Accountant -->
                     <!-- ================================================= -->
 
-                    <div class="row mt-4">
+                    <div class="row mt-5">
 
                         <div class="col-6">
 
@@ -671,11 +764,7 @@
 
 
             <t t-if="not stmt_data_last">
-
-                <div
-                    style="page-break-after: always;"
-                />
-
+                <div style="page-break-after: always;"/>
             </t>
 
         </t>
