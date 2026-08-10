@@ -299,101 +299,37 @@
     <t t-call="web.html_container">
 
         <style>
-            * {
-                box-sizing: border-box;
-            }
+            * { box-sizing: border-box; }
 
-            .page {
-                font-size: 7px;
-                line-height: 1.1;
-            }
-
-            .statement-title {
-                font-size: 12px;
-                margin: 0 0 5px 0;
-            }
-
-            .statement-info {
-                font-size: 7px;
-                margin-bottom: 5px;
-            }
-
-            .statement-info .col-3 {
-                padding-left: 2px;
-                padding-right: 2px;
-            }
-
-            /* =========================================================
-            MAIN TABLE - width control lives ONLY in colgroup.
-            No conflicting selectors (no td:last-child, no nth-child)
-            so the renderer has a single source of truth for widths.
-            ========================================================= */
+            .page { font-size: 6pt; line-height: 1.1; }
 
             table.statement-table {
                 width: 100%;
                 table-layout: fixed;
                 border-collapse: collapse;
-                font-size: 6px;
-                line-height: 1.1;
-                margin: 0 0 5px 0;
+                font-size: 5pt;
             }
 
             .statement-table th,
             .statement-table td {
                 padding: 1px 2px;
-                vertical-align: middle;
-                font-size: 6px;
-                line-height: 1.1;
+                font-size: 5pt;
+                line-height: 1.05;
                 white-space: normal;
                 word-break: break-all;
-                overflow-wrap: break-word;
+                overflow-wrap: anywhere;
+                min-width: 0;
+                max-width: 0; /* forces table-layout:fixed to respect % width in wkhtmltopdf */
             }
 
-            .statement-table thead th {
-                font-weight: bold;
-                text-align: center;
-            }
-
-            .statement-table td.text-end,
-            .statement-table th.text-end {
-                text-align: right;
-            }
-
-            .statement-total {
-                width: 100%;
-                font-size: 6px;
-                margin-top: 3px;
-                margin-bottom: 6px;
-                page-break-inside: avoid;
-            }
-
-            .statement-total table {
-                width: 100%;
-                table-layout: fixed;
-                border-collapse: collapse;
-            }
-
-            .statement-total th,
-            .statement-total td {
-                padding: 2px 1px;
-                font-size: 6px;
-                font-weight: bold;
-                word-break: break-all;
-                white-space: normal;
-            }
-
-            .statement-balance,
-            .statement-signature {
-                font-size: 7px;
-                margin-top: 6px;
-                page-break-inside: avoid;
-            }
-
-            .statement-balance .col-6,
-            .statement-signature .col-6 {
-                padding-left: 2px;
-                padding-right: 2px;
-            }
+            .statement-table th:nth-child(1), .statement-table td:nth-child(1) { width: 7%; }
+            .statement-table th:nth-child(2), .statement-table td:nth-child(2) { width: 12%; }
+            .statement-table th:nth-child(3), .statement-table td:nth-child(3) { width: 24%; }
+            .statement-table th:nth-child(4), .statement-table td:nth-child(4) { width: 8%; }
+            .statement-table th:nth-child(5), .statement-table td:nth-child(5) { width: 10%; }
+            .statement-table th:nth-child(6), .statement-table td:nth-child(6) { width: 12%; }
+            .statement-table th:nth-child(7), .statement-table td:nth-child(7) { width: 12%; }
+            .statement-table th:nth-child(8), .statement-table td:nth-child(8) { width: 15%; }
         </style>
 
 
