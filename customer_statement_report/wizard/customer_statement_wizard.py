@@ -2203,8 +2203,12 @@ class CustomerStatementReport(models.AbstractModel):
                     # REPORT DEBIT / CREDIT
                     # ------------------------------------------
 
-                    debit = raw_debit
-                    credit = raw_credit
+                    if is_invoice and self._is_product_line(line):
+                        debit = raw_credit
+                        credit = raw_debit
+                    else:
+                        debit = raw_debit
+                        credit = raw_credit
 
                     if is_payment:
                         payment_moves |= move
