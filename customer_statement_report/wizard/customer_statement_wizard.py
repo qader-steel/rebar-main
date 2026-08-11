@@ -1850,10 +1850,8 @@ class CustomerStatementReport(models.AbstractModel):
             return self._is_product_line(line)
 
         if self._is_payment_move(move):
-            return True
+            return line.account_id.account_type == 'asset_receivable'
 
-        # manual / other journal entries: keep only the customer's
-        # receivable line for this account
         return line.account_id.account_type == 'asset_receivable'
 
     def _should_include_vendor_line(self, line):
@@ -1863,10 +1861,8 @@ class CustomerStatementReport(models.AbstractModel):
             return self._is_product_line(line)
 
         if self._is_payment_move(move):
-            return True
+            return line.account_id.account_type == 'liability_payable'
 
-        # manual / other journal entries: keep only the vendor's
-        # payable line for this account
         return line.account_id.account_type == 'liability_payable'
 
     def _should_include_line(self, line, party_type):
