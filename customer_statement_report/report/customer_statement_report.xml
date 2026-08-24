@@ -1,0 +1,21 @@
+<odoo>
+    <record id="action_report_customer_statement" model="ir.actions.report">
+        <field name="name">Customer Statement</field>
+        <field name="model">customer.statement.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">customer_statement_report.statement</field>
+        <field name="report_file">customer_statement_report.statement</field>
+        <field name="print_report_name">'Customer Statement - %s' % (object.partner_id.name)</field>
+        <field name="binding_model_id" eval="False"/>
+    </record>
+    <record id="action_report_customer_statement_from_lines" model="ir.actions.report">
+        <field name="name">Customer Statement (from Journal Items)</field>
+        <field name="model">account.move.line</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">customer_statement_report.from_lines</field>
+        <field name="report_file">customer_statement_report.from_lines</field>
+        <field name="print_report_name">'Customer Statement'</field>
+        <field name="binding_model_id" ref="account.model_account_move_line"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>
