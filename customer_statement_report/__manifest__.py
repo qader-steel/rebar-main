@@ -2,7 +2,8 @@
     'name': 'Customer Statement Report',
     'version': '19.0.1.0.0',
     'category': 'Accounting',
-    'summary': 'كشف حساب العميل مع تفاصيل المنتجات',
+    'summary': 'Customer statement report with product details',
+    'author': 'Magic Quantum',
     'depends': ['account', 'sale'],
     'data': [
         'security/ir.model.access.csv',
