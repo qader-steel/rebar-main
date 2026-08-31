@@ -169,7 +169,12 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
             if result.get('has_more'):
                 return result
 
-            currency_data = report._compute_amount_currency_by_partner(options)
+            # Database operations are isolated in a savepoint.  This is important
+            # because Odoo's outer transaction must remain usable even if a custom
+            # aggregation query is incompatible with a future Enterprise revision.
+            with self.env.cr.savepoint():
+                currency_data = report._compute_amount_currency_by_partner(options)
+
             partner_currency_data = currency_data.get(partner_id, {})
 
             for currency_id, amount in sorted(partner_currency_data.items()):
@@ -221,7 +226,8 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
                 })
 
         except Exception:
-            # A subtotal is non-critical. The native Partner Ledger must remain usable.
+            # A subtotal is non-critical. The savepoint above prevents a failed
+            # aggregation query from leaving the outer Odoo transaction aborted.
             _logger.exception(
                 'partner_ledger_currency: could not append currency totals'
             )
@@ -233,11 +239,7 @@ class AccountReportCurrencyTotals(models.Model):
     _inherit = 'account.report'
 
     def _get_query_amount_currency_sums(self, options) -> SQL:
-        """Return original-currency sums grouped by partner and currency.
-
-        The query deliberately uses the same report domain/query engine as
-        Partner Ledger, so date/company/journal/partner filters are respected.
-        """
+        """Build the currency-total query using the Partner Ledger report domain."""
         queries = []
 
         for column_group_key, column_group_options in self._split_options_per_column_group(options).items():
@@ -247,38 +249,34 @@ class AccountReportCurrencyTotals(models.Model):
                 SELECT
                     account_move_line.partner_id AS groupby,
                     account_move_line.currency_id AS currency_id,
-                    %(column_group_key)s AS column_group_key,
-                    SUM(account_move_line.amount_currency) AS amount_currency
-                FROM %(table_references)s
-                WHERE %(search_condition)s
-                    AND account_move_line.partner_id IS NOT NULL
-                    AND account_move_line.currency_id IS NOT NULL
-                GROUP BY
-                    account_move_line.partner_id,
-                    account_move_line.currency_id,
-                    %(column_group_key)s
+                    %s AS column_group_key,
+                    COALESCE(SUM(account_move_line.amount_currency), 0.0) AS amount_currency
+                FROM %s
+                WHERE %s
+                  AND account_move_line.partner_id IS NOT NULL
+                  AND account_move_line.currency_id IS NOT NULL
+                GROUP BY account_move_line.partner_id, account_move_line.currency_id
                 """,
-                column_group_key=column_group_key,
-                table_references=query.from_clause,
-                search_condition=query.where_clause,
+                column_group_key,
+                query.from_clause,
+                query.where_clause,
             ))
 
         return SQL(' UNION ALL ').join(queries)
 
     def _compute_amount_currency_by_partner(self, options):
-        """Return {partner_id: {currency_id: amount}} for the current report."""
-        self.env.cr.execute(self._get_query_amount_currency_sums(options))
+        """Return {partner_id: {currency_id: amount}} for the report scope."""
+        query = self._get_query_amount_currency_sums(options)
+        self.env.cr.execute(query)
         rows = self.env.cr.dictfetchall()
 
-        # Keep the API simple for the Partner Ledger expansion hook. For a
-        # single report group, values are summed normally. With comparison
-        # groups, the totals are still safely aggregated rather than silently
-        # overwritten.
         data = {}
         for row in rows:
-            partner_id = row['groupby']
-            currency_id = row['currency_id']
-            amount = row['amount_currency'] or 0.0
+            partner_id = row.get('groupby')
+            currency_id = row.get('currency_id')
+            amount = float(row.get('amount_currency') or 0.0)
+            if not partner_id or not currency_id:
+                continue
             data.setdefault(partner_id, {})
             data[partner_id][currency_id] = (
                 data[partner_id].get(currency_id, 0.0) + amount
