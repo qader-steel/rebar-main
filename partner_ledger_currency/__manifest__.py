@@ -31,7 +31,7 @@ Requires Odoo Enterprise (account_reports).
     'author': 'Magic Quantum',
     'depends': ['account_reports'],
     'data': [
-        'data/partner_ledger_columns.xml',
+        # 'data/partner_ledger_columns.xml',
     ],
     'installable': True,
     'auto_install': False,
