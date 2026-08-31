@@ -79,6 +79,23 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
 
         return currency, amount, aml
 
+    def _plc_format_currency_amount(self, amount, currency):
+        """Format the amount WITHOUT the currency symbol.
+
+        The currency code is appended explicitly, so the result is e.g.
+        ``100.00 USD`` or ``10,000.000 IQD`` instead of ``$ 100.00 USD`` or
+        ``10,000.000 ع.د IQD``.
+        """
+        return '%s %s' % (
+            formatLang(
+                self.env,
+                amount,
+                digits=currency.decimal_places,
+                monetary=False,
+            ),
+            currency.name,
+        )
+
     def _plc_patch_move_line(self, options, line, row):
         """Fill the standard Amount Currency cell without changing the report schema."""
         cells = line.get('columns') or []
@@ -97,10 +114,7 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
 
             cell = cells[index]
             cell['no_format'] = amount
-            cell['name'] = '%s %s' % (
-                formatLang(self.env, amount, currency_obj=currency),
-                currency.name,
-            )
+            cell['name'] = self._plc_format_currency_amount(amount, currency)
 
     def _get_report_line_move_line(
         self,
@@ -141,12 +155,7 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
         offset,
         unfold_all_batch_data=None,
     ):
-        """Append one Amount Currency total row per currency for each partner.
-
-        This is the same extension point used successfully by the existing
-        custom module. We only add currency totals; no debit/credit totals are
-        created here.
-        """
+        """Append one Amount Currency total row per currency for each partner."""
         result = super()._report_expand_unfoldable_line_partner_ledger(
             line_dict_id,
             groupby,
@@ -164,14 +173,11 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
 
             _markup, _model, partner_id = parsed[-1]
 
-            # Only add totals once the normal AML expansion for this partner
-            # is complete. Otherwise pagination could duplicate the subtotal.
+            # Only add totals once the normal AML expansion for this partner is
+            # complete. Otherwise pagination could duplicate the subtotal.
             if result.get('has_more'):
                 return result
 
-            # Database operations are isolated in a savepoint.  This is important
-            # because Odoo's outer transaction must remain usable even if a custom
-            # aggregation query is incompatible with a future Enterprise revision.
             with self.env.cr.savepoint():
                 currency_data = report._compute_amount_currency_by_partner(options)
 
@@ -191,14 +197,7 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
 
                     if expression_label == 'amount_currency':
                         columns.append({
-                            'name': '%s %s' % (
-                                formatLang(
-                                    self.env,
-                                    amount,
-                                    currency_obj=currency,
-                                ),
-                                currency.name,
-                            ),
+                            'name': self._plc_format_currency_amount(amount, currency),
                             'no_format': amount,
                             'expression_label': 'amount_currency',
                             'figure_type': 'string',
