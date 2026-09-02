@@ -1,0 +1,142 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following module:
+# 	* qader_steel_suite
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-04-27 11:00+0000\n"
+"PO-Revision-Date: 2024-04-27 11:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+
+#. module: qader_steel_suite
+msgid "Bundle Qty"
+msgstr "حزم"
+
+#. module: qader_steel_suite
+msgid "BUNDLE QTY"
+msgstr "حزم"
+
+#. module: qader_steel_suite
+msgid "Total Weight (Ton)"
+msgstr "إجمالي الوزن (طن)"
+
+#. module: qader_steel_suite
+msgid "TOTAL WEIGHT (TON)"
+msgstr "إجمالي الوزن (طن)"
+
+#. module: qader_steel_suite
+msgid "Total Bundle Qty"
+msgstr "إجمالي الحزم"
+
+#. module: qader_steel_suite
+msgid "TOTAL BUNDLE QTY"
+msgstr "إجمالي الحزم"
+
+#. module: qader_steel_suite
+msgid "Scale Net Weight"
+msgstr "صافي وزن الميزان"
+
+#. module: qader_steel_suite
+msgid "SCALE NET WEIGHT"
+msgstr "صافي وزن الميزان"
+
+#. module: qader_steel_suite
+msgid "Bundle Weight"
+msgstr "الحزمة"
+
+#. module: qader_steel_suite
+msgid "Bundle Multiplier"
+msgstr "وزن الحزمة"
+
+#. module: qader_steel_suite
+msgid "Quantity"
+msgstr "الكمية"
+
+#. module: qader_steel_suite
+msgid "Delivered"
+msgstr "تم التوصيل"
+
+#. module: qader_steel_suite
+msgid "Received"
+msgstr "تم الاستلام"
+
+#. module: qader_steel_suite
+msgid "#"
+msgstr "#"
+
+#. module: qader_steel_suite
+msgid "Transportation Details"
+msgstr "تفاصيل النقل"
+
+#. module: qader_steel_suite
+msgid "Driver Name"
+msgstr "اسم السائق"
+
+#. module: qader_steel_suite
+msgid "DRIVER NAME"
+msgstr "اسم السائق"
+
+#. module: qader_steel_suite
+msgid "Driver Phone No"
+msgstr "رقم هاتف السائق"
+
+#. module: qader_steel_suite
+msgid "DRIVER PHONE NO"
+msgstr "رقم هاتف السائق"
+
+#. module: qader_steel_suite
+msgid "Car Plate No"
+msgstr "رقم اللوحة"
+
+#. module: qader_steel_suite
+msgid "CAR PLATE NO"
+msgstr "رقم اللوحة"
+
+#. module: qader_steel_suite
+msgid "Border Crossing"
+msgstr "منفذ العبور"
+
+#. module: qader_steel_suite
+msgid "BORDER CROSSING"
+msgstr "منفذ العبور"
+
+#. module: qader_steel_suite
+msgid "Scale No"
+msgstr "رقم الميزان"
+
+#. module: qader_steel_suite
+msgid "SCALE NO"
+msgstr "رقم الميزان"
+
+#. module: qader_steel_suite
+msgid "Transportation Info"
+msgstr "معلومات النقل"
+
+#. module: qader_steel_suite
+msgid "Driver Names"
+msgstr "أسماء السائقين"
+
+#. module: qader_steel_suite
+msgid "Driver Phone Numbers"
+msgstr "أرقام هواتف السائقين"
+
+#. module: qader_steel_suite
+msgid "Car Plate Numbers"
+msgstr "أرقام اللوحات"
+
+#. module: qader_steel_suite
+msgid "Border Crossings"
+msgstr "منافذ العبور"
+
+#. module: qader_steel_suite
+msgid "Scale Numbers"
+msgstr "أرقام الموازين"

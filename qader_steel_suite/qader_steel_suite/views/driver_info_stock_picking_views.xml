@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_stock_picking_form_mq_transportation_details" model="ir.ui.view">
+        <field name="name">stock.picking.form.mq.transportation.details</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//group" position="inside">
+                <group string="Transportation Details" name="transportation_details">
+                    <group>
+                        <field name="driver_name_id"/>
+                        <field name="driver_phone_id"/>
+                        <field name="car_plate_id"/>
+                    </group>
+                    <group>
+                        <field name="border_crossing_id"/>
+                        <field name="scale_no_id"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
