@@ -8,9 +8,9 @@
         <xpath expr="//th[@name='th_taxes']" position="attributes">
             <attribute name="t-if">False</attribute>
         </xpath>
-        <xpath expr="//td[@name='td_taxes']" position="attributes">
+        <!-- <xpath expr="//td[@name='td_taxes']" position="attributes">
             <attribute name="t-if">False</attribute>
-        </xpath>
+        </xpath> -->
         <xpath expr="//div[@name='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
@@ -21,9 +21,9 @@
         <xpath expr="//th[@name='th_taxes']" position="attributes">
             <attribute name="t-if">False</attribute>
         </xpath>
-        <xpath expr="//td[@name='td_taxes']" position="attributes">
+        <!-- <xpath expr="//td[@name='td_taxes']" position="attributes">
             <attribute name="t-if">False</attribute>
-        </xpath>
+        </xpath> -->
         <xpath expr="//div[@id='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
