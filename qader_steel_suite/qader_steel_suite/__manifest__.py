@@ -37,19 +37,15 @@ into one, so they can be installed, upgraded and maintained together:
    into one section per currency, plus a consolidated company-currency
    total.
 
-5. **Full-Cycle Sale Automation & Requisition Auto-Populate**
-   A "Run Full Cycle" button/action on Sale Orders that, per management's
-   explicit request, ports the original hand-off automation code
-   literally: syncs the net weight to every non-service order line,
-   adds a shipping fee line, confirms the sale, confirms & links any
-   dropship purchase orders, force-validates every related transfer,
-   then creates and posts the customer invoice and any vendor bill.
-   A safer earlier draft (reusing the module's proportional bundle-weight
-   distribution and Odoo's standard invoicing methods) is kept fully
-   commented out at the bottom of ``models/sale_order_automation.py`` for
-   reference / rollback - see that file's header comment. Plus an action
-   on Purchase Requisitions that bulk-adds one line per purchasable
-   product at a flat per-ton price.
+5. **Net-Weight Sales Automation & Requisition Auto-Populate**
+   Net Weight is distributed proportionally across eligible non-service sale
+   lines; Scale Net Weight mirrors Net Weight; Shipping Cost/Ton creates one
+   total transport/clearance service line; Confirm SO runs the same calculation
+   before standard confirmation, then completes dropship purchase, stock
+   validation and customer/vendor invoicing using Odoo standard methods.
+   Purchase Agreements auto-populate saleable, purchasable, storable products
+   at the configured per-ton price when the agreement is first saved.
+
 
 Notes
 -----

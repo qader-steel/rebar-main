@@ -14,7 +14,7 @@
                     </group>
                     <group>
                         <field name="border_crossing_id"/>
-                        <field name="scale_no_id"/>
+                        <field name="name" string="Sale No" readonly="1"/>
                     </group>
                 </group>
             </xpath>

@@ -6,39 +6,35 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="priority">99</field>
         <field name="arch" type="xml">
-            <!-- Inject fields into the order lines table -->
             <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="before">
-                <field name="mq_bundle_qty" />
-                <field name="mq_quantity" />
+                <field name="mq_bundle_qty"/>
+                <field name="mq_quantity"/>
             </xpath>
-            
             <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="attributes">
                 <attribute name="column_invisible">True</attribute>
             </xpath>
-
-            <!-- Adjust the product_uom_id field -->
             <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_id']" position="attributes">
                 <attribute name="string">Unit</attribute>
                 <attribute name="optional">show</attribute>
             </xpath>
-
-            <!-- Add totals to the bottom of the form -->
             <xpath expr="//group[@name='sale_total']" position="after">
                 <group class="oe_subtotal_footer oe_right">
-                    <field name="mq_total_weight" />
-                    <field name="mq_total_bundle_qty" />
+                    <field name="mq_total_weight"/>
+                    <field name="mq_total_bundle_qty"/>
                 </group>
             </xpath>
-
             <xpath expr="//header" position="inside">
-                <button name="action_calculate_scale_weight" string="احتساب وزن القبان الصافي" type="object" class="oe_highlight" invisible="state in ('sale', 'done', 'cancel')"/>
+                <button name="action_calculate_net_weight"
+                        string="Net Weight"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="state in ('sale', 'done', 'cancel')"/>
             </xpath>
-
-            <!-- Add Scale Net Weight details before notebook -->
             <xpath expr="//sheet/notebook" position="before">
                 <group string="تفاصيل الوزن" name="weight_details">
-                    <field name="mq_scale_net_weight" />
-                    <field name="mq_total_bundle_qty" />
+                    <field name="x_studio_net_weight"/>
+                    <field name="mq_scale_net_weight" readonly="1"/>
+                    <field name="x_studio_shipping_cost_ton"/>
                 </group>
             </xpath>
         </field>

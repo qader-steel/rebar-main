@@ -10,17 +10,27 @@
                         string="تنفيذ الدورة الكاملة"
                         type="object"
                         class="oe_highlight"
-                        confirm="سيتم تأكيد أمر البيع، وأوامر الشراء المرتبطة، واعتماد كل حركات المخزون، وإنشاء وترحيل الفاتورة (وفاتورة المورد إن وجدت) مباشرة. هل تريد المتابعة؟"
+                        confirm="سيتم احتساب Net Weight أولًا، ثم تأكيد البيع ومعالجة الشراء والمخزون وإنشاء وترحيل الفواتير. هل تريد المتابعة؟"
                         invisible="state in ('cancel',)"/>
             </xpath>
-            <xpath expr="//sheet/notebook" position="before">
-                <group string="بيانات الدورة الكاملة" name="full_cycle_details">
-                    <field name="x_studio_net_weight"/>
-                    <field name="x_studio_shipping_cost_ton"/>
-                </group>
-            </xpath>
+
             <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="after">
                 <field name="x_studio_po_price" optional="show"/>
+            </xpath>
+
+            <!-- Management requested the dropshipping smart-button value/name
+                 to be the fixed value 'هلال بابل'. -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_qss_dropship"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-truck"
+                        invisible="state == 'cancel'">
+                    <div class="o_stat_info">
+                        <field name="qss_dropship_label" class="o_stat_value"/>
+                        <span class="o_stat_text">Dropshipping</span>
+                    </div>
+                </button>
             </xpath>
         </field>
     </record>
