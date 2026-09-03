@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_automation" model="ir.ui.view">
+        <field name="name">sale.order.form.automation</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_run_full_cycle"
+                        string="تنفيذ الدورة الكاملة"
+                        type="object"
+                        class="oe_highlight"
+                        confirm="سيتم تأكيد أمر البيع، وأوامر الشراء المرتبطة، واعتماد كل حركات المخزون، وإنشاء وترحيل الفاتورة (وفاتورة المورد إن وجدت) مباشرة. هل تريد المتابعة؟"
+                        invisible="state in ('cancel',)"/>
+            </xpath>
+            <xpath expr="//sheet/notebook" position="before">
+                <group string="بيانات الدورة الكاملة" name="full_cycle_details">
+                    <field name="x_studio_net_weight"/>
+                    <field name="x_studio_shipping_cost_ton"/>
+                </group>
+            </xpath>
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="after">
+                <field name="x_studio_po_price" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
