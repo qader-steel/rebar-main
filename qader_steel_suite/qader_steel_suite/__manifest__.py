@@ -37,6 +37,20 @@ into one, so they can be installed, upgraded and maintained together:
    into one section per currency, plus a consolidated company-currency
    total.
 
+5. **Full-Cycle Sale Automation & Requisition Auto-Populate**
+   A "Run Full Cycle" button/action on Sale Orders that, per management's
+   explicit request, ports the original hand-off automation code
+   literally: syncs the net weight to every non-service order line,
+   adds a shipping fee line, confirms the sale, confirms & links any
+   dropship purchase orders, force-validates every related transfer,
+   then creates and posts the customer invoice and any vendor bill.
+   A safer earlier draft (reusing the module's proportional bundle-weight
+   distribution and Odoo's standard invoicing methods) is kept fully
+   commented out at the bottom of ``models/sale_order_automation.py`` for
+   reference / rollback - see that file's header comment. Plus an action
+   on Purchase Requisitions that bulk-adds one line per purchasable
+   product at a flat per-ton price.
+
 Notes
 -----
 * The four original modules already shared data (the bundle calculator
@@ -62,6 +76,7 @@ Notes
         "sale_stock",
         "purchase",
         "purchase_stock",
+        "purchase_requisition",
         "stock",
         "account",
         "account_reports",
@@ -98,6 +113,10 @@ Notes
         "views/statement_wizard_views.xml",
         "report/customer_statement_report.xml",
         "report/customer_statement_templates.xml",
+
+        # --- Full-cycle sale automation + requisition auto-populate -------
+        "views/automation_sale_order_views.xml",
+        "views/automation_server_actions.xml",
     ],
     "installable": True,
     "application": False,
