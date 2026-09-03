@@ -45,8 +45,19 @@ class SaleOrderAutomation(models.Model):
         """تنفيذ حرفي لمنطق الزميل الأصلي (Studio Server Action) بدون أي
         تعديل في التسلسل أو الشروط - فقط أُعيدت كتابته كميثود Odoo عادية
         بدل سكربت execute code، تمامًا كما طلب المدير."""
+        _logger.info(
+            "QSS [full_cycle] ▶ تم استدعاء الإجراء على %s أمر/أوامر: ids=%s",
+            len(self), self.ids,
+        )
         for so in self:
+            _logger.info(
+                "QSS [full_cycle] ── بدء معالجة أمر البيع: id=%s name=%s state=%s",
+                so.id, so.name, so.state,
+            )
             so._run_full_cycle_one()
+            _logger.info(
+                "QSS [full_cycle] ✅ انتهت معالجة أمر البيع id=%s بنجاح.", so.id,
+            )
 
     def _run_full_cycle_one(self):
         self.ensure_one()
@@ -58,7 +69,14 @@ class SaleOrderAutomation(models.Model):
         net_weight = 0.0
         if 'x_studio_net_weight' in so._fields:
             net_weight = so.x_studio_net_weight or 0.0
+        _logger.info(
+            "QSS [step1] id=%s | x_studio_net_weight في الحقول=%s | القيمة=%s",
+            so.id,
+            'x_studio_net_weight' in so._fields,
+            net_weight,
+        )
         if net_weight > 0:
+            _logger.info("QSS [step1] id=%s | تحديث كميات %s سطر...", so.id, len(so.order_line))
             for line in so.order_line:
                 if (line.display_type not in ['line_section', 'line_note']
                         and line.product_id.type != 'service'):
@@ -68,15 +86,26 @@ class SaleOrderAutomation(models.Model):
                     elif 'x_studio_mq_quantity' in line._fields:
                         vals['x_studio_mq_quantity'] = net_weight
                     line.write(vals)
+                    _logger.info("QSS [step1] id=%s | سطر %s تم تحديث كميته إلى %s", so.id, line.id, net_weight)
+        else:
+            _logger.warning("QSS [step1] id=%s | الوزن الصافي = 0 أو غير محدد — لن تُحدَّث أي كمية.", so.id)
 
         # 2. جلب تكلفة النقل باستخدام الحقل الجديد
         shipping_cost_unit = 0.0
         if 'x_studio_shipping_cost_ton' in so._fields:
             shipping_cost_unit = so.x_studio_shipping_cost_ton or 0.0
+        _logger.info(
+            "QSS [step2] id=%s | تكلفة النقل/طن = %s",
+            so.id, shipping_cost_unit,
+        )
 
         # 3. حساب وإضافة أجور النقل كسطر في أمر البيع (إن وجدت قيمة)
         if shipping_cost_unit > 0 and net_weight > 0:
             total_shipping_fee = shipping_cost_unit * net_weight
+            _logger.info(
+                "QSS [step3] id=%s | إجمالي أجور النقل = %s × %s = %s",
+                so.id, shipping_cost_unit, net_weight, total_shipping_fee,
+            )
             shipping_product = env['product.product'].search(
                 [('name', 'ilike', SHIPPING_PRODUCT_NAME)], limit=1
             )
@@ -104,14 +133,22 @@ class SaleOrderAutomation(models.Model):
                 })
 
         # 4. تأكيد أمر المبيعات
+        _logger.info("QSS [step4] id=%s | حالة أمر البيع = %s", so.id, so.state)
         if so.state in ['draft', 'sent']:
             so.action_confirm()
+            _logger.info("QSS [step4] id=%s | تم تأكيد أمر البيع ✔", so.id)
+        else:
+            _logger.info("QSS [step4] id=%s | أمر البيع محدد مسبقًا — لا حاجة لتأكيد.", so.id)
 
         # 5. البحث الذكي عن أوامر الشراء المرتبطة (لو الحالة دروب شيبنج)
         po_lines = env['purchase.order.line'].search(
             [('sale_line_id', 'in', so.order_line.ids)]
         )
         purchase_orders = po_lines.mapped('order_id')
+        _logger.info(
+            "QSS [step5] id=%s | أوامر شراء مرتبطة = %s ids=%s",
+            so.id, len(purchase_orders), purchase_orders.ids,
+        )
         if purchase_orders:
             for po in purchase_orders:
                 if po.partner_id and 'requisition_id' in po._fields:
@@ -127,6 +164,10 @@ class SaleOrderAutomation(models.Model):
 
         # 6. تجميع حركات المخزن واعتمادها
         all_pickings = so.picking_ids | purchase_orders.mapped('picking_ids')
+        _logger.info(
+            "QSS [step6] id=%s | حركات مخزن (pickings) = %s ids=%s",
+            so.id, len(all_pickings), all_pickings.ids,
+        )
         for picking in all_pickings:
             if picking.state not in ['done', 'cancel']:
                 if picking.state in ['confirmed', 'waiting']:
@@ -147,6 +188,7 @@ class SaleOrderAutomation(models.Model):
                     ).process_cancel_backorder()
 
         # 7. تحديث كميات وأسعار أوامر الشراء
+        _logger.info("QSS [step7] id=%s | تحديث أوامر الشراء...", so.id)
         if net_weight > 0 and purchase_orders:
             for po in purchase_orders:
                 for po_line in po.order_line:
@@ -166,6 +208,10 @@ class SaleOrderAutomation(models.Model):
 
         # 8. التعامل مع فاتورة المبيعات (التحقق إذا كانت منشأة مسبقاً أو
         #    إنشاؤها مرة واحدة وترحيلها)
+        _logger.info(
+            "QSS [step8] id=%s | فواتير موجودة مسبقًا = %s ids=%s",
+            so.id, len(so.invoice_ids), so.invoice_ids.ids,
+        )
         if not so.invoice_ids:
             invoice_date = so.date_order
             invoice_line_vals = []
@@ -202,6 +248,7 @@ class SaleOrderAutomation(models.Model):
 
         # 9. إنشاء فاتورة المشتريات (Vendor Bill) مرة واحدة فقط لكل أمر
         #    شراء (لو وُجد دروب شيبنج)
+        _logger.info("QSS [step9] id=%s | إنشاء فواتير المورد...", so.id)
         if purchase_orders:
             for po in purchase_orders:
                 if not po.invoice_ids:

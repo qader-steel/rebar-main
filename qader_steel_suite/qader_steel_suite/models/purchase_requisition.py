@@ -6,54 +6,86 @@ _logger = logging.getLogger(__name__)
 
 
 class PurchaseRequisition(models.Model):
-    """Bulk-populate a Purchase Requisition (Purchase Agreement) with one
-    line per purchasable product, at a flat per-ton price.
-
-    NOTE: the field is kept under its original Studio technical name
-    (``x_studio_price_ton``) on purpose, so any existing Studio view,
-    filter or automation that already references it keeps working once
-    this field becomes a "real" module field instead of a Studio-only one.
-    """
     _inherit = 'purchase.requisition'
 
     x_studio_price_ton = fields.Float(string="Price (Ton)")
 
     def action_populate_all_products(self):
-        """Add one requisition line per purchasable, non-service product,
-        at quantity 100 and the per-ton price set on the requisition.
+        _logger.info(
+            "QSS [populate_products] ▶ تم استدعاء الإجراء على %s سجل/سجلات: ids=%s",
+            len(self), self.ids,
+        )
 
-        Only acts on requisitions that don't already have lines, so it's
-        safe to run more than once or on a bulk selection.
-
-        IMPORTANT: this pulls in *every* purchasable, non-service product
-        in the database - there is no category/vendor filter, exactly as
-        in the original code. If only a specific subset of products
-        should be quoted on this requisition, add a domain below (e.g.
-        restrict to a product category) before using this in production.
-        """
         Product = self.env['product.product']
+
         for requisition in self:
+            _logger.info(
+                "QSS [populate_products] ── فحص السجل: id=%s name=%s",
+                requisition.id, requisition.display_name,
+            )
+
+            # ── شرط 1: هل يوجد سطور مسبقًا؟ ─────────────────────────────
             if requisition.line_ids:
+                _logger.warning(
+                    "QSS [populate_products] ⛔ تم تخطي السجل id=%s لأنه يحوي "
+                    "%s سطر/سطور مسبقة — الكود يشترط أن تكون السطور فارغة.",
+                    requisition.id, len(requisition.line_ids),
+                )
                 continue
+
             unit_price = requisition.x_studio_price_ton or 0.0
+            _logger.info(
+                "QSS [populate_products] ✔ السجل id=%s فارغ من السطور، "
+                "سعر الطن المُقروء = %.4f",
+                requisition.id, unit_price,
+            )
+
+            # ── شرط 2: هل توجد منتجات قابلة للشراء؟ ─────────────────────
             products = Product.search([
                 ('purchase_ok', '=', True),
                 ('type', '!=', 'service'),
             ])
-            if not products:
-                continue
-            requisition.write({
-                'line_ids': [
-                    (0, 0, {
-                        'product_id': product.id,
-                        'product_qty': 100.0,
-                        'price_unit': unit_price,
-                    })
-                    for product in products
-                ],
-            })
             _logger.info(
-                "qader_steel_suite: populated %s requisition line(s) on "
-                "%s at %.2f/ton",
-                len(products), requisition.display_name, unit_price,
+                "QSS [populate_products] 🔍 عدد المنتجات القابلة للشراء "
+                "(غير الخدمية) في قاعدة البيانات = %s",
+                len(products),
             )
+
+            if not products:
+                _logger.warning(
+                    "QSS [populate_products] ⛔ لم يُعثر على أي منتج قابل "
+                    "للشراء وغير خدمي — لن يُضاف أي سطر للسجل id=%s.",
+                    requisition.id,
+                )
+                continue
+
+            # ── كتابة السطور ──────────────────────────────────────────────
+            _logger.info(
+                "QSS [populate_products] ✏ جاري إضافة %s سطر للسجل id=%s ...",
+                len(products), requisition.id,
+            )
+            try:
+                requisition.write({
+                    'line_ids': [
+                        (0, 0, {
+                            'product_id': product.id,
+                            'product_qty': 100.0,
+                            'price_unit': unit_price,
+                        })
+                        for product in products
+                    ],
+                })
+                _logger.info(
+                    "QSS [populate_products] ✅ تمت إضافة %s سطر بنجاح "
+                    "للسجل id=%s اسم=%s بسعر %.4f لكل طن.",
+                    len(products), requisition.id,
+                    requisition.display_name, unit_price,
+                )
+            except Exception as exc:
+                _logger.exception(
+                    "QSS [populate_products] ❌ فشلت الكتابة للسجل id=%s — %s",
+                    requisition.id, exc,
+                )
+                raise
+
+        _logger.info("QSS [populate_products] ■ انتهى تنفيذ الإجراء.")
