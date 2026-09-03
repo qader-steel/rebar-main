@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Odoo 19 report templates use explicit th/td names. Keep these xpaths
+         strict so module installation fails only on real structural changes. -->
+
     <!-- Hide Taxes in Sale Order / Quotation -->
     <template id="report_saleorder_document_no_taxes" inherit_id="sale.report_saleorder_document">
-        <!-- Using a broad XPath to remove the header and cells if they exist -->
-        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
-        <!-- Hide the entire total section -->
+        <xpath expr="//th[@name='th_taxes']" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
+        <xpath expr="//td[@name='td_taxes']" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
         <xpath expr="//div[@name='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
@@ -12,22 +18,27 @@
 
     <!-- Hide Taxes in Invoice -->
     <template id="report_invoice_document_no_taxes" inherit_id="account.report_invoice_document">
-        <!-- Using a broad XPath for headers/cells -->
-        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
-        <!-- Hide the total section -->
-        <xpath expr="//div[@id='total' or @name='total']" position="attributes">
-            <attribute name="style">display: none;</attribute>
+        <xpath expr="//th[@name='th_taxes']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
-        <!-- Use a very broad locator for any extra tax details tables that might exist -->
-        <xpath expr="//div[contains(@class, 'tax') or contains(@id, 'tax') or contains(@name, 'tax')]" position="attributes">
+        <xpath expr="//td[@name='td_taxes']" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
+        <xpath expr="//div[@id='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
     </template>
 
-    <!-- Hide Taxes in Purchase Order -->
+    <!-- Hide Taxes in Purchase Order. In Odoo 19 the product tax cell does not
+         have a name, so locate it through its tax-label rendering expression. -->
     <template id="report_purchaseorder_document_no_taxes" inherit_id="purchase.report_purchaseorder_document">
-        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
-        <xpath expr="//div[@id='total' or @name='total']" position="attributes">
+        <xpath expr="//th[@name='th_taxes']" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
+        <xpath expr="//td[span[contains(@t-out, 'tax.tax_label')]]" position="attributes">
+            <attribute name="t-if">False</attribute>
+        </xpath>
+        <xpath expr="//div[@id='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
     </template>
