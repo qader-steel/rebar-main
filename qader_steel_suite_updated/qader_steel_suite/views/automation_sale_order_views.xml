@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_automation" model="ir.ui.view">
+        <field name="name">sale.order.form.automation</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_net_weight"
+                        string="Net Weight"
+                        type="object"
+                        confirm="سيتم توزيع الوزن الصافي تناسبيًا على سطور المنتجات وتحديث سطر أجور النقل والتخليص، دون تأكيد أمر البيع. هل تريد المتابعة؟"
+                        invisible="state in ('sale', 'done', 'cancel')"/>
+                <button name="action_run_full_cycle"
+                        string="تنفيذ الدورة الكاملة"
+                        type="object"
+                        class="oe_highlight"
+                        confirm="سيتم توزيع الوزن الصافي (إن لم يكن موزّعًا مسبقًا)، ثم تأكيد أمر البيع، وأوامر الشراء المرتبطة، واعتماد كل حركات المخزون، وإنشاء وترحيل الفاتورة (وفاتورة المورد إن وجدت) مباشرة. هل تريد المتابعة؟"
+                        invisible="state in ('cancel',)"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_dropship_pickings"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-truck"
+                        invisible="x_studio_dropship_picking_count == 0">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_text">هلال بابل</span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//sheet/notebook" position="before">
+                <group string="بيانات الدورة الكاملة" name="full_cycle_details">
+                    <field name="x_studio_net_weight"/>
+                    <field name="x_studio_shipping_cost_ton"/>
+                </group>
+            </xpath>
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="after">
+                <field name="x_studio_po_price" optional="show"/>
+            </xpath>
+            <xpath expr="//group[@name='sale_total']" position="after">
+                <group class="oe_subtotal_footer oe_right">
+                    <field name="x_studio_total_net_weight"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
