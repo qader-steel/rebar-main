@@ -1,6 +1,6 @@
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -54,9 +54,13 @@ class SaleOrderAutomation(models.Model):
 
     x_studio_net_weight = fields.Float(string="Net weight")
     x_studio_shipping_cost_ton = fields.Float(string="Shipping Cost (Ton)")
-    x_studio_total_net_weight = fields.Float(
+    # NOTE: named mq_total_net_weight (not x_studio_*) to avoid clashing with
+    # any Studio field already stored in ir.model.fields under that name.
+    # Studio auto-names copied fields as "<original> (Copy)" which would
+    # override our Python string= at runtime and show the wrong label.
+    mq_total_net_weight = fields.Float(
         string="Total Net Weight",
-        compute="_compute_x_studio_total_net_weight",
+        compute="_compute_mq_total_net_weight",
         help="مجموع كميات سطور المنتجات المؤهلة (بعد استثناء الملاحظات "
              "والـ Sections والمنتجات الخدمية وسطر أجور النقل) - يجب أن "
              "يطابق قيمة Net Weight أعلاه بعد الضغط على زر Net Weight أو "
@@ -69,14 +73,14 @@ class SaleOrderAutomation(models.Model):
         'order_line.product_id.type',
         'order_line.name',
     )
-    def _compute_x_studio_total_net_weight(self):
+    def _compute_mq_total_net_weight(self):
         for so in self:
             valid_lines = so.order_line.filtered(
                 lambda l: l.display_type not in ('line_section', 'line_note')
                 and l.product_id.type != 'service'
                 and SHIPPING_PRODUCT_NAME not in (l.name or '')
             )
-            so.x_studio_total_net_weight = sum(valid_lines.mapped('product_uom_qty'))
+            so.mq_total_net_weight = sum(valid_lines.mapped('product_uom_qty'))
 
     # ------------------------------------------------------------------
     # Shared "Net Weight" logic - management's algorithm, ported literally:
@@ -117,6 +121,18 @@ class SaleOrderAutomation(models.Model):
                         vals['mq_quantity'] = new_line_qty
                     elif 'x_studio_mq_quantity' in line._fields:
                         vals['x_studio_mq_quantity'] = new_line_qty
+                    # onchange doesn't fire on server-side writes, so we keep
+                    # mq_bundle_qty in sync here manually. For bundle products
+                    # mq_bundle_qty is in "bundles", not tonnes — leave it alone
+                    # so the bundle-count→qty formula still works. For all other
+                    # products mq_bundle_qty is just a mirror of product_uom_qty.
+                    is_bundle = (
+                        line.product_id
+                        and 'mq_is_bundle_weight' in line.product_id._fields
+                        and line.product_id.mq_is_bundle_weight
+                    )
+                    if not is_bundle and 'mq_bundle_qty' in line._fields:
+                        vals['mq_bundle_qty'] = new_line_qty
                     line.write(vals)
                     _logger.info(
                         "QSS [net_weight] id=%s | سطر %s: نسبة=%.4f ← كمية جديدة=%.4f",

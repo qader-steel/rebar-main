@@ -9,6 +9,23 @@ class SaleOrderLine(models.Model):
     mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
     mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
 
+    # ------------------------------------------------------------------
+    # For non-bundle lines, mq_bundle_qty must always equal product_uom_qty.
+    # @api.onchange handles UI edits, but server-side writes (automation,
+    # import, the Full Cycle button) skip onchange entirely.  The @api.depends
+    # method below keeps the two fields in sync no matter how the qty changes.
+    # For bundle products we leave mq_bundle_qty untouched here because the
+    # user enters it in "bundles" and the onchange drives product_uom_qty via
+    # the bundle-multiplier formula — overwriting it from depends would break
+    # that direction.
+    # ------------------------------------------------------------------
+    @api.depends('product_uom_qty', 'product_id', 'product_id.mq_is_bundle_weight')
+    def _sync_bundle_qty_non_bundle(self):
+        for line in self:
+            if not (line.product_id and line.product_id.mq_is_bundle_weight):
+                if line.mq_bundle_qty != line.product_uom_qty:
+                    line.mq_bundle_qty = line.product_uom_qty
+
     @api.onchange('mq_bundle_qty', 'product_id')
     def _onchange_mq_bundle_qty(self):
         for line in self:

@@ -40,7 +40,7 @@
             </xpath>
             <xpath expr="//group[@name='sale_total']" position="after">
                 <group class="oe_subtotal_footer oe_right">
-                    <field name="x_studio_total_net_weight"/>
+                    <field name="mq_total_net_weight"/>
                 </group>
             </xpath>
         </field>
