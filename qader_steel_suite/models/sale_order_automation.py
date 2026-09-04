@@ -11,7 +11,7 @@ class SaleOrderLineAutomation(models.Model):
     _inherit = 'sale.order.line'
 
     x_studio_po_price = fields.Float(
-        string="PO Price",
+        string="سعر أمر الشراء",
         help="Optional per-unit purchase price. When set, it overrides "
              "the automatically computed price on a dropship purchase "
              "order line created from this sale line.",
@@ -52,14 +52,14 @@ class SaleOrderAutomation(models.Model):
     # ==================================================================
     _inherit = 'sale.order'
 
-    x_studio_net_weight = fields.Float(string="Net weight")
-    x_studio_shipping_cost_ton = fields.Float(string="Shipping Cost (Ton)")
+    x_studio_net_weight = fields.Float(string="الوزن الصافي")
+    x_studio_shipping_cost_ton = fields.Float(string="تكلفة الشحن (طن)")
     # NOTE: named mq_total_net_weight (not x_studio_*) to avoid clashing with
     # any Studio field already stored in ir.model.fields under that name.
     # Studio auto-names copied fields as "<original> (Copy)" which would
     # override our Python string= at runtime and show the wrong label.
     mq_total_net_weight = fields.Float(
-        string="Total Net Weight",
+        string="إجمالي الوزن الصافي",
         compute="_compute_mq_total_net_weight",
         help="مجموع كميات سطور المنتجات المؤهلة (بعد استثناء الملاحظات "
              "والـ Sections والمنتجات الخدمية وسطر أجور النقل) - يجب أن "
@@ -111,29 +111,35 @@ class SaleOrderAutomation(models.Model):
         )
 
         if net_weight > 0 and valid_lines:
-            total_original_qty = sum(valid_lines.mapped('product_uom_qty'))
-            if total_original_qty > 0:
+            # التوزيع يعتمد على نسبة كمية الحزم (mq_bundle_qty) لكل سطر
+            # مثال: منتج أ بندل=1، منتج ب بندل=2، الوزن الصافي=300
+            #   → نسبة أ = 1/3 → كمية = 100
+            #   → نسبة ب = 2/3 → كمية = 200
+            total_bundle_qty = sum(
+                (l.mq_bundle_qty or 0.0) for l in valid_lines
+            )
+            if total_bundle_qty > 0:
                 for line in valid_lines:
-                    proportion = line.product_uom_qty / total_original_qty
+                    bundle_qty = line.mq_bundle_qty or 0.0
+                    proportion = bundle_qty / total_bundle_qty
                     new_line_qty = net_weight * proportion
                     vals = {'product_uom_qty': new_line_qty}
                     if 'mq_quantity' in line._fields:
                         vals['mq_quantity'] = new_line_qty
                     elif 'x_studio_mq_quantity' in line._fields:
                         vals['x_studio_mq_quantity'] = new_line_qty
-                    # ملاحظة (قرار إداري): mq_bundle_qty (Bundle Qty) إدخال
-                    # يدوي بحت - عدد الربطات الفعلي الذي يكتبه المستخدم لكل
-                    # سطر. توزيع الوزن الصافي يغيّر الكمية/الوزن فقط ولا
-                    # يكتب فوق عدد الربطات إطلاقًا.
+                    # ملاحظة: mq_bundle_qty إدخال يدوي - نسبة التوزيع فقط.
+                    # لا نكتب فوقه إطلاقًا.
                     line.write(vals)
                     _logger.info(
-                        "QSS [net_weight] id=%s | سطر %s: نسبة=%.4f ← كمية جديدة=%.4f",
-                        so.id, line.id, proportion, new_line_qty,
+                        "QSS [net_weight] id=%s | سطر %s: بندل=%.2f نسبة=%.4f ← كمية جديدة=%.4f",
+                        so.id, line.id, bundle_qty, proportion, new_line_qty,
                     )
             else:
                 _logger.warning(
-                    "QSS [net_weight] id=%s | مجموع الكميات الأصلية = صفر — "
-                    "تعذّر التوزيع النسبي.", so.id,
+                    "QSS [net_weight] id=%s | مجموع كمية الحزم = صفر — "
+                    "تعذّر التوزيع النسبي. تأكد من إدخال كمية الحزم لكل سطر.",
+                    so.id,
                 )
         else:
             _logger.warning(
@@ -189,7 +195,7 @@ class SaleOrderAutomation(models.Model):
     # dropship picking(s) linked to this order's purchase orders.
     # ------------------------------------------------------------------
     x_studio_dropship_picking_count = fields.Integer(
-        string="Dropship Pickings",
+        string="شحنات دروبشيب",
         compute="_compute_x_studio_dropship_picking_count",
     )
 

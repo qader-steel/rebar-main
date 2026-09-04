@@ -8,31 +8,31 @@ _logger = logging.getLogger(__name__)
 class PurchaseRequisition(models.Model):
     _inherit = 'purchase.requisition'
 
-    x_studio_price_ton = fields.Float(string="Price (Ton)")
+    x_studio_price_ton = fields.Float(string="السعر (طن)")
 
     # ------------------------------------------------------------------
     # حقول Purchase Agreement الإضافية (طلب إداري)
     # ------------------------------------------------------------------
     x_studio_total_ordered = fields.Float(
-        string="Total Ordered",
+        string="إجمالي الكمية المطلوبة",
         compute="_compute_x_studio_total_ordered",
         store=True,
         help="مجموع qty_ordered لكل سطور الاتفاقية.",
     )
     x_studio_value = fields.Monetary(
-        string="Value",
+        string="القيمة",
         compute="_compute_x_studio_value",
         store=True,
         currency_field='currency_id',
         help="Price (Ton) × Total Ordered.",
     )
     x_studio_agreement_amount = fields.Monetary(
-        string="Agreement Amount",
+        string="مبلغ الاتفاقية",
         currency_field='currency_id',
         help="السقف/القيمة الإجمالية المتفق عليها مع المورد - تُدخل يدويًا.",
     )
     x_studio_remaining_amount = fields.Monetary(
-        string="Remaining Amount",
+        string="المبلغ المتبقي",
         compute="_compute_x_studio_remaining_amount",
         store=True,
         currency_field='currency_id',
@@ -47,7 +47,7 @@ class PurchaseRequisition(models.Model):
     # واضحي الاسم بدل الاسم العشوائي غير القابل للقراءة).
     x_studio_vendor_id_currency_id = fields.Many2one(
         'res.currency',
-        string="Vendor Currency",
+        string="عملة المورد",
         related='vendor_id.currency_id',
         store=True,
         readonly=True,
@@ -56,7 +56,7 @@ class PurchaseRequisition(models.Model):
     # مخزَّن أصلًا (Odoo)، فتخزين حقل related عليه قد يُبقي قيمة قديمة.
     # تُقرأ هنا مباشرة في كل مرة لضمان أنها دائمًا القيمة الحيّة.
     x_studio_total_payable = fields.Monetary(
-        string="Total Payable",
+        string="إجمالي المستحق",
         related='vendor_id.debit',
         currency_field='x_studio_vendor_id_currency_id',
         readonly=True,

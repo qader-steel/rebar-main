@@ -6,8 +6,8 @@ class SaleOrderLine(models.Model):
     """
     _inherit = 'sale.order.line'
 
-    mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_bundle_qty = fields.Float(string="كمية الحزم", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="الكمية", digits='Product Unit of Measure')
 
     # ==================================================================
     # طلب إداري (سبتمبر 2026) - سلوك "Bundle Qty"
@@ -29,14 +29,20 @@ class SaleOrderLine(models.Model):
     # ==================================================================
     @api.onchange('mq_bundle_qty', 'product_id')
     def _onchange_mq_bundle_qty(self):
-        """للمنتجات المُعلَّمة "Bundle Weight" فقط: عدد الربطات يقود الكمية
-        عبر المُعامِل (bundle multiplier). لأي منتج آخر: القيمة المكتوبة
-        تُترك كما هي تمامًا - لا إعادة كتابة ولا إرجاع للقيمة القديمة."""
+        """كمية الحزم تقود الكمية لكل المنتجات:
+        - منتج مُعلَّم "Bundle Weight": الكمية = كمية الحزم × المُعامِل
+        - أي منتج آخر: الكمية = كمية الحزم (مُعامِل ضمني = 1)
+        هذا يضمن أن نسب التوزيع عند الضغط على زر "الوزن الصافي" تكون
+        مبنية على كمية الحزم المُدخلة يدويًا."""
         for line in self:
             if line.product_id and line.product_id.mq_is_bundle_weight:
                 multiplier = line.product_id.mq_bundle_multiplier or 1.0
                 line.mq_quantity = line.mq_bundle_qty * multiplier
                 line.product_uom_qty = line.mq_quantity
+            else:
+                # مُعامِل ضمني = 1: كمية الحزم = الكمية مباشرة
+                line.mq_quantity = line.mq_bundle_qty
+                line.product_uom_qty = line.mq_bundle_qty
 
     @api.onchange('mq_quantity')
     def _onchange_mq_quantity(self):
@@ -75,12 +81,12 @@ class SaleOrder(models.Model):
     # Order form for this reason (still present, unchanged, on Purchase
     # Order and Stock Picking).
     mq_scale_net_weight = fields.Float(
-        string="Scale Net Weight",
+        string="صافي وزن الميزان",
         compute="_compute_mq_scale_net_weight",
         store=True,
     )
-    mq_total_bundle_qty = fields.Float(string="Total Bundle Qty", compute="_compute_mq_total_bundle", store=True)
-    mq_total_weight = fields.Float(string="Total Weight (Ton)", compute="_compute_mq_total_weight", store=True)
+    mq_total_bundle_qty = fields.Float(string="إجمالي كمية الحزم", compute="_compute_mq_total_bundle", store=True)
+    mq_total_weight = fields.Float(string="إجمالي الوزن (طن)", compute="_compute_mq_total_weight", store=True)
 
     @api.depends('x_studio_net_weight')
     def _compute_mq_scale_net_weight(self):
@@ -98,5 +104,3 @@ class SaleOrder(models.Model):
             # We sum the scale net weight from related active deliveries
             valid_pickings = order.picking_ids.filtered(lambda p: p.state != 'cancel')
             order.mq_total_weight = sum(valid_pickings.mapped('mq_scale_net_weight'))
-
-

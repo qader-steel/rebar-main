@@ -6,8 +6,8 @@ class StockMove(models.Model):
     """
     _inherit = 'stock.move'
 
-    mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_bundle_qty = fields.Float(string="كمية الحزم", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="الكمية", digits='Product Unit of Measure')
 
     @api.onchange('mq_quantity')
     def _onchange_mq_quantity(self):
@@ -47,12 +47,12 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     mq_scale_net_weight = fields.Float(
-        string="Scale Net Weight",
+        string="صافي وزن الميزان",
         compute="_compute_mq_scale_net_weight",
         store=True,
         readonly=False
     )
-    mq_total_bundle_qty = fields.Float(string="Total Bundle Qty", compute="_compute_mq_total_bundle", store=True)
+    mq_total_bundle_qty = fields.Float(string="إجمالي كمية الحزم", compute="_compute_mq_total_bundle", store=True)
 
     @api.depends('sale_id.mq_scale_net_weight', 'purchase_id.mq_scale_net_weight')
     def _compute_mq_scale_net_weight(self):

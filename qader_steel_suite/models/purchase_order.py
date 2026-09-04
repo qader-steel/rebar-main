@@ -6,8 +6,8 @@ class PurchaseOrderLine(models.Model):
     """
     _inherit = 'purchase.order.line'
 
-    mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_bundle_qty = fields.Float(string="كمية الحزم", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="الكمية", digits='Product Unit of Measure')
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -67,13 +67,13 @@ class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
 
     mq_scale_net_weight = fields.Float(
-        string="Scale Net Weight",
+        string="صافي وزن الميزان",
         compute="_compute_mq_scale_net_weight",
         store=True,
         readonly=False
     )
-    mq_total_bundle_qty = fields.Float(string="Total Bundle Qty", compute="_compute_mq_total_bundle", store=True)
-    mq_total_weight = fields.Float(string="Total Weight (Ton)", compute="_compute_mq_total_weight", store=True)
+    mq_total_bundle_qty = fields.Float(string="إجمالي كمية الحزم", compute="_compute_mq_total_bundle", store=True)
+    mq_total_weight = fields.Float(string="إجمالي الوزن (طن)", compute="_compute_mq_total_weight", store=True)
 
     @api.depends('order_line.sale_line_id.order_id.mq_scale_net_weight')
     def _compute_mq_scale_net_weight(self):
@@ -128,6 +128,3 @@ class StockRule(models.Model):
                 res['mq_bundle_qty'] = sale_line.mq_bundle_qty
                 res['mq_quantity'] = sale_line.mq_quantity
         return res
-
-
-

@@ -6,8 +6,8 @@ class AccountMoveLine(models.Model):
     """
     _inherit = 'account.move.line'
 
-    mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_bundle_qty = fields.Float(string="كمية الحزم", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="الكمية", digits='Product Unit of Measure')
 
     @api.onchange('mq_quantity')
     def _onchange_mq_quantity(self):
@@ -20,14 +20,14 @@ class AccountMoveLine(models.Model):
             if line.quantity != line.mq_quantity:
                 line.mq_quantity = line.quantity
 
-    mq_qty_delivered = fields.Float(string="Delivered", compute="_compute_mq_qty_delivered", digits='Product Unit of Measure')
+    mq_qty_delivered = fields.Float(string="الكمية المسلّمة", compute="_compute_mq_qty_delivered", digits='Product Unit of Measure')
 
     @api.depends('sale_line_ids.qty_delivered')
     def _compute_mq_qty_delivered(self):
         for line in self:
             line.mq_qty_delivered = sum(line.sale_line_ids.mapped('qty_delivered')) if line.sale_line_ids else 0.0
 
-    mq_qty_received = fields.Float(string="Received", compute="_compute_mq_qty_received", digits='Product Unit of Measure')
+    mq_qty_received = fields.Float(string="الكمية المستلمة", compute="_compute_mq_qty_received", digits='Product Unit of Measure')
 
     @api.depends('purchase_line_id.qty_received')
     def _compute_mq_qty_received(self):
@@ -40,8 +40,8 @@ class AccountMove(models.Model):
     """
     _inherit = 'account.move'
 
-    mq_total_bundle_qty = fields.Float(string="Total Bundle Qty", compute="_compute_mq_totals", store=True)
-    mq_total_weight = fields.Float(string="Total Weight (Ton)", compute="_compute_mq_totals", store=True)
+    mq_total_bundle_qty = fields.Float(string="إجمالي كمية الحزم", compute="_compute_mq_totals", store=True)
+    mq_total_weight = fields.Float(string="إجمالي الوزن (طن)", compute="_compute_mq_totals", store=True)
 
     @api.depends('invoice_line_ids.mq_bundle_qty', 'invoice_line_ids.sale_line_ids', 'invoice_line_ids.purchase_line_id')
     def _compute_mq_totals(self):
