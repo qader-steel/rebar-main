@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Appears in the Action (gear) menu of the Sale Order list/form,
+         for distributing net weight (proportionally) + shipping fee on
+         one or several selected orders, without confirming them. -->
+    <record id="server_action_net_weight" model="ir.actions.server">
+        <field name="name">توزيع الوزن الصافي (Net Weight)</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_net_weight()</field>
+    </record>
+
+    <!-- Appears in the Action (gear) menu of the Sale Order list/form,
+         for running the full cycle on one or several selected orders. -->
+    <record id="server_action_run_full_cycle" model="ir.actions.server">
+        <field name="name">تنفيذ الدورة الكاملة (بيع ← شراء ← مخزون ← فواتير)</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_run_full_cycle()</field>
+    </record>
+
+    <!-- Appears in the Action (gear) menu of the Purchase Requisition
+         (Purchase Agreement) list/form. -->
+    <record id="server_action_populate_requisition_products" model="ir.actions.server">
+        <field name="name">تعبئة كل المنتجات تلقائيًا</field>
+        <field name="model_id" ref="purchase_requisition.model_purchase_requisition"/>
+        <field name="binding_model_id" ref="purchase_requisition.model_purchase_requisition"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_populate_all_products()</field>
+    </record>
+</odoo>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- RFQ Report Extension -->
+    <template id="report_purchasequotation_document_mq_bundle" inherit_id="purchase.report_purchasequotation_document">
+        <!-- Add Sequence Header at the beginning -->
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_seq" class="text-center" style="width: 35px;">#</th>
+        </xpath>
+
+        <!-- Add Sequence Data at the beginning -->
+        <xpath expr="//span[@t-field='order_line.name']/.." position="before">
+            <td name="td_seq" class="text-center">
+                <!-- Row numbering for RFQ (order_line) -->
+                <t t-if="not order_line.display_type">
+                    <span t-esc="order_line_index + 1"/>
+                </t>
+            </td>
+        </xpath>
+
+        <xpath expr="//th[@name='th_quantity']" position="before">
+            <th name="th_mq_bundle_qty" class="text-end"><t t-esc="'حزم' if (o.env.context.get('lang') or '').startswith('ar') else 'Bundle Qty'"/></th>
+        </xpath>
+
+        <xpath expr="//span[@t-field='order_line.product_qty']/.." position="before">
+            <td name="td_mq_bundle_qty" class="text-end">
+                <span t-field="order_line.mq_bundle_qty"/>
+            </td>
+        </xpath>
+
+        <xpath expr="//div[@id='informations']" position="before">
+            <div t-if="o.mq_total_weight > 0 or o.mq_total_bundle_qty > 0" class="row mb-4">
+                <div class="col-12">
+                    <div class="row" style="margin: 0; padding: 10px 16px; background-color: #eef2f7; border-radius: 8px;">
+                        <div t-if="o.mq_total_weight > 0" class="col text-center">
+                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'إجمالي الوزن (طن)' if (o.env.context.get('lang') or '').startswith('ar') else 'Total Weight (Ton)'"/></div>
+                            <div style="font-size: 1.05em; font-weight: 700;" t-field="o.mq_total_weight"/>
+                        </div>
+                        <div t-if="o.mq_total_bundle_qty > 0" class="col text-center">
+                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'إجمالي الحزم' if (o.env.context.get('lang') or '').startswith('ar') else 'Total Bundle Qty'"/></div>
+                            <div style="font-size: 1.05em; font-weight: 700;" t-field="o.mq_total_bundle_qty"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+
+    <!-- PO Report Extension -->
+    <template id="report_purchaseorder_document_mq_bundle" inherit_id="purchase.report_purchaseorder_document">
+        <!-- Add Sequence Header at the beginning -->
+        <xpath expr="//th[@name='th_description']" position="before">
+            <th name="th_seq" class="text-center" style="width: 35px;">#</th>
+        </xpath>
+
+        <!-- Add Sequence Data at the beginning -->
+        <xpath expr="//span[@t-field='line.name']/.." position="before">
+            <td name="td_seq" class="text-center">
+                <!-- Row numbering for PO (line) -->
+                <t t-if="not line.display_type">
+                    <span t-esc="line_index + 1"/>
+                </t>
+            </td>
+        </xpath>
+
+        <xpath expr="//th[@name='th_quantity']" position="before">
+            <th name="th_mq_bundle_qty" class="text-end"><t t-esc="'حزم' if (o.env.context.get('lang') or '').startswith('ar') else 'Bundle Qty'"/></th>
+        </xpath>
+
+        <xpath expr="//span[@t-field='line.product_qty']/.." position="before">
+            <td name="td_mq_bundle_qty" class="text-end">
+                <span t-field="line.mq_bundle_qty"/>
+            </td>
+        </xpath>
+
+        <!-- Remove Taxes and Discount Data Cells -->
+        <xpath expr="//td[.//span[contains(@t-out, 'tax.tax_label')]]" position="replace"/>
+        <xpath expr="//td[.//span[@t-field='line.discount']]" position="replace"/>
+
+        <xpath expr="//div[@id='informations']" position="before">
+            <div t-if="o.mq_total_weight > 0 or o.mq_total_bundle_qty > 0" class="row mb-4">
+                <div class="col-12">
+                    <div class="row" style="margin: 0; padding: 10px 16px; background-color: #eef2f7; border-radius: 8px;">
+                        <div t-if="o.mq_total_weight > 0" class="col text-center">
+                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'إجمالي الوزن (طن)' if (o.env.context.get('lang') or '').startswith('ar') else 'Total Weight (Ton)'"/></div>
+                            <div style="font-size: 1.05em; font-weight: 700;" t-field="o.mq_total_weight"/>
+                        </div>
+                        <div t-if="o.mq_total_bundle_qty > 0" class="col text-center">
+                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'إجمالي الحزم' if (o.env.context.get('lang') or '').startswith('ar') else 'Total Bundle Qty'"/></div>
+                            <div style="font-size: 1.05em; font-weight: 700;" t-field="o.mq_total_bundle_qty"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </template>
+</odoo>
