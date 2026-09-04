@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Purchase Agreement (purchase.requisition) - extra management
+         fields: Price (Ton), Total Ordered, Value, Agreement Amount,
+         Remaining Amount, Total Payable (vendor's outstanding balance).
+         The products tree (line_ids) is auto-populated on save by
+         models/purchase_requisition.py - no button needed for that
+         anymore, but "تعبئة كل المنتجات تلقائيًا" stays available in the
+         Action (gear) menu as a manual fallback.
+
+         NOTE: anchored on `//field[@name='vendor_id']` and
+         `//sheet/notebook` (both certain to exist on this form, unlike
+         guessing the standard view's internal group @name ids) rather
+         than a specific group id, following the same safe pattern
+         already used elsewhere in this module (see
+         automation_sale_order_views.xml). -->
+    <record id="view_purchase_requisition_form_agreement_fields" model="ir.ui.view">
+        <field name="name">purchase.requisition.form.agreement.fields</field>
+        <field name="model">purchase.requisition</field>
+        <field name="inherit_id" ref="purchase_requisition.view_purchase_requisition_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='vendor_id']" position="after">
+                <field name="x_studio_price_ton"/>
+                <field name="x_studio_agreement_amount"/>
+            </xpath>
+            <xpath expr="//sheet/notebook" position="before">
+                <group string="بيانات الاتفاقية (Purchase Agreement)" name="agreement_totals">
+                    <field name="x_studio_total_ordered" readonly="1"/>
+                    <field name="x_studio_value" readonly="1"/>
+                    <field name="x_studio_remaining_amount" readonly="1"/>
+                    <field name="x_studio_total_payable" readonly="1"/>
+                    <field name="x_studio_vendor_id_currency_id" invisible="1"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

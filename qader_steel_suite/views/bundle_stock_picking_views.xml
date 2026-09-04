@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_mq_bundle" model="ir.ui.view">
+        <field name="name">stock.picking.form.mq.bundle</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='move_ids']//list//field[@name='product_uom_qty']" position="before">
+                <field name="mq_bundle_qty" />
+                <field name="mq_quantity" string="Demand" />
+            </xpath>
+            
+            <xpath expr="//field[@name='move_ids']//list//field[@name='product_uom_qty']" position="attributes">
+                <attribute name="column_invisible">True</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='move_ids']//list//field[@name='product_uom']" position="attributes">
+                <attribute name="string">Unit</attribute>
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+                <button name="action_calculate_scale_weight" string="احتساب وزن القبان الصافي" type="object" class="oe_highlight" invisible="state in ('done', 'cancel')"/>
+            </xpath>
+
+            <!-- Add Scale Net Weight details before Operations notebook -->
+            <xpath expr="//sheet/notebook" position="before">
+                <group string="تفاصيل الوزن" name="weight_details">
+                    <field name="mq_scale_net_weight" />
+                    <field name="mq_total_bundle_qty" />
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
