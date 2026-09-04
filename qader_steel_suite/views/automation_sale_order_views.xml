@@ -15,7 +15,7 @@
                         string="Run Full Cycle"
                         type="object"
                         class="oe_highlight"
-                        confirm="This will distribute the net weight (if not already distributed), then confirm the sale order and its linked purchase orders, validate every stock move, and create & post the invoice (and vendor bill if any) immediately. Continue?"
+                        confirm="This will distribute the net weight (if not already distributed), then confirm the sale order and its linked purchase orders, validate every stock move, and create &amp; post the invoice (and vendor bill if any) immediately. Continue?"
                         invisible="state in ('cancel',)"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
