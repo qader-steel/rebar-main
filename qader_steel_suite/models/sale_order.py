@@ -6,8 +6,8 @@ class SaleOrderLine(models.Model):
     """
     _inherit = 'sale.order.line'
 
-    mq_bundle_qty = fields.Float(string="كمية الحزم", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="الكمية", digits='Product Unit of Measure')
+    mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
 
     # ==================================================================
     # طلب إداري (سبتمبر 2026) - سلوك "Bundle Qty"
@@ -76,17 +76,17 @@ class SaleOrder(models.Model):
     # always mirror the "Net Weight" field (x_studio_net_weight, defined in
     # sale_order_automation.py) so downstream consumers of this field
     # (stock.picking.mq_scale_net_weight below, printed reports, etc.) stay
-    # correct automatically. The manual "احتساب وزن القبان الصافي" button
+    # correct automatically. The manual "Calculate Net Scale Weight" button
     # and its distribute-by-bundle-ratio logic were removed from the Sale
     # Order form for this reason (still present, unchanged, on Purchase
     # Order and Stock Picking).
     mq_scale_net_weight = fields.Float(
-        string="صافي وزن الميزان",
+        string="Scale Net Weight",
         compute="_compute_mq_scale_net_weight",
         store=True,
     )
-    mq_total_bundle_qty = fields.Float(string="إجمالي كمية الحزم", compute="_compute_mq_total_bundle", store=True)
-    mq_total_weight = fields.Float(string="إجمالي الوزن (طن)", compute="_compute_mq_total_weight", store=True)
+    mq_total_bundle_qty = fields.Float(string="Total Bundle Qty", compute="_compute_mq_total_bundle", store=True)
+    mq_total_weight = fields.Float(string="Total Weight (Ton)", compute="_compute_mq_total_weight", store=True)
 
     @api.depends('x_studio_net_weight')
     def _compute_mq_scale_net_weight(self):

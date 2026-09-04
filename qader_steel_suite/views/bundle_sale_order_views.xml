@@ -36,7 +36,7 @@
 
             <!-- Add Scale Net Weight details before notebook -->
             <xpath expr="//sheet/notebook" position="before">
-                <group string="تفاصيل الوزن" name="weight_details">
+                <group string="Weight Details" name="weight_details">
                     <field name="mq_scale_net_weight" readonly="1"/>
                     <field name="mq_total_bundle_qty" />
                 </group>

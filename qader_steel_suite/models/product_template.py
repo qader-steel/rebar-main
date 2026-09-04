@@ -6,5 +6,5 @@ class ProductTemplate(models.Model):
     """
     _inherit = 'product.template'
 
-    mq_is_bundle_weight = fields.Boolean(string="وزن الحزمة")
-    mq_bundle_multiplier = fields.Float(string="مُعامِل الحزمة", default=1.0)
+    mq_is_bundle_weight = fields.Boolean(string="Bundle Weight")
+    mq_bundle_multiplier = fields.Float(string="Bundle Multiplier", default=1.0)

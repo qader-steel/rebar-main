@@ -9,13 +9,13 @@
                 <button name="action_net_weight"
                         string="Net Weight"
                         type="object"
-                        confirm="سيتم توزيع الوزن الصافي تناسبيًا على سطور المنتجات وتحديث سطر أجور النقل والتخليص، دون تأكيد أمر البيع. هل تريد المتابعة؟"
+                        confirm="This will proportionally distribute the net weight across the product lines and update the shipping/clearance fee line, without confirming the sale order. Continue?"
                         invisible="state in ('sale', 'done', 'cancel')"/>
                 <button name="action_run_full_cycle"
-                        string="تنفيذ الدورة الكاملة"
+                        string="Run Full Cycle"
                         type="object"
                         class="oe_highlight"
-                        confirm="سيتم توزيع الوزن الصافي (إن لم يكن موزّعًا مسبقًا)، ثم تأكيد أمر البيع، وأوامر الشراء المرتبطة، واعتماد كل حركات المخزون، وإنشاء وترحيل الفاتورة (وفاتورة المورد إن وجدت) مباشرة. هل تريد المتابعة؟"
+                        confirm="This will distribute the net weight (if not already distributed), then confirm the sale order and its linked purchase orders, validate every stock move, and create & post the invoice (and vendor bill if any) immediately. Continue?"
                         invisible="state in ('cancel',)"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -33,7 +33,7 @@
                 </button>
             </xpath>
             <xpath expr="//sheet/notebook" position="before">
-                <group string="بيانات الدورة الكاملة" name="full_cycle_details">
+                <group string="Full Cycle Details" name="full_cycle_details">
                     <field name="x_studio_net_weight"/>
                     <field name="x_studio_shipping_cost_ton"/>
                 </group>

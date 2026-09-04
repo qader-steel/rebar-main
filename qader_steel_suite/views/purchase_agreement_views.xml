@@ -24,7 +24,7 @@
                 <field name="x_studio_agreement_amount"/>
             </xpath>
             <xpath expr="//sheet/notebook" position="before">
-                <group string="بيانات الاتفاقية (Purchase Agreement)" name="agreement_totals">
+                <group string="Agreement Details (Purchase Agreement)" name="agreement_totals">
                     <field name="x_studio_total_ordered" readonly="1"/>
                     <field name="x_studio_value" readonly="1"/>
                     <field name="x_studio_remaining_amount" readonly="1"/>

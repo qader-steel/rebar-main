@@ -20,12 +20,12 @@
             </xpath>
 
             <xpath expr="//header" position="inside">
-                <button name="action_calculate_scale_weight" string="احتساب وزن القبان الصافي" type="object" class="oe_highlight" invisible="state in ('done', 'cancel')"/>
+                <button name="action_calculate_scale_weight" string="Calculate Net Scale Weight" type="object" class="oe_highlight" invisible="state in ('done', 'cancel')"/>
             </xpath>
 
             <!-- Add Scale Net Weight details before Operations notebook -->
             <xpath expr="//sheet/notebook" position="before">
-                <group string="تفاصيل الوزن" name="weight_details">
+                <group string="Weight Details" name="weight_details">
                     <field name="mq_scale_net_weight" />
                     <field name="mq_total_bundle_qty" />
                 </group>

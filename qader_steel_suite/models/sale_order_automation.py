@@ -11,7 +11,7 @@ class SaleOrderLineAutomation(models.Model):
     _inherit = 'sale.order.line'
 
     x_studio_po_price = fields.Float(
-        string="سعر أمر الشراء",
+        string="PO Price",
         help="Optional per-unit purchase price. When set, it overrides "
              "the automatically computed price on a dropship purchase "
              "order line created from this sale line.",
@@ -52,19 +52,16 @@ class SaleOrderAutomation(models.Model):
     # ==================================================================
     _inherit = 'sale.order'
 
-    x_studio_net_weight = fields.Float(string="الوزن الصافي")
-    x_studio_shipping_cost_ton = fields.Float(string="تكلفة الشحن (طن)")
+    x_studio_net_weight = fields.Float(string="Net Weight")
+    x_studio_shipping_cost_ton = fields.Float(string="Shipping Cost (Ton)")
     # NOTE: named mq_total_net_weight (not x_studio_*) to avoid clashing with
     # any Studio field already stored in ir.model.fields under that name.
     # Studio auto-names copied fields as "<original> (Copy)" which would
     # override our Python string= at runtime and show the wrong label.
     mq_total_net_weight = fields.Float(
-        string="إجمالي الوزن الصافي",
+        string="Total Net Weight",
         compute="_compute_mq_total_net_weight",
-        help="مجموع كميات سطور المنتجات المؤهلة (بعد استثناء الملاحظات "
-             "والـ Sections والمنتجات الخدمية وسطر أجور النقل) - يجب أن "
-             "يطابق قيمة Net Weight أعلاه بعد الضغط على زر Net Weight أو "
-             "Confirm SO.",
+        help="Sum of the eligible product line quantities (excluding notes, sections, service products and the shipping fee line) - should match the Net Weight value above after clicking the Net Weight or Confirm SO button.",
     )
 
     @api.depends(
@@ -195,7 +192,7 @@ class SaleOrderAutomation(models.Model):
     # dropship picking(s) linked to this order's purchase orders.
     # ------------------------------------------------------------------
     x_studio_dropship_picking_count = fields.Integer(
-        string="شحنات دروبشيب",
+        string="Dropship Shipments",
         compute="_compute_x_studio_dropship_picking_count",
     )
 

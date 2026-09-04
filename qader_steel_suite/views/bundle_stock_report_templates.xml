@@ -36,7 +36,7 @@
                 <div class="col-12">
                     <div class="row" style="margin: 0; padding: 10px 16px; background-color: #eef2f7; border-radius: 8px;">
                         <div t-if="o.mq_scale_net_weight > 0" class="col text-center">
-                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'صافي وزن الميزان' if (o.env.context.get('lang') or '').startswith('ar') else 'Scale Net Weight'"/></div>
+                            <div style="font-weight: 600; font-size: 0.8em; color: #555; text-transform: uppercase; letter-spacing: 0.03em;"><t t-esc="'Scale Net Weight' if (o.env.context.get('lang') or '').startswith('ar') else 'Scale Net Weight'"/></div>
                             <div style="font-size: 1.05em; font-weight: 700;" t-field="o.mq_scale_net_weight"/>
                         </div>
                         <div t-if="o.mq_total_bundle_qty > 0" class="col text-center">

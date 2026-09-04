@@ -1,0 +1,890 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* qader_steel_suite
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-04 21:47+0000\n"
+"PO-Revision-Date: 2026-09-04 21:47+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: qader_steel_suite
+#. odoo-python
+#: code:addons/qader_steel_suite/models/account_partner_ledger.py:0
+msgid "%s Total"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.report,print_report_name:qader_steel_suite.action_report_customer_statement_from_lines
+msgid "'Customer Statement'"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.report,print_report_name:qader_steel_suite.action_report_customer_statement
+msgid "'Statement - %s' % (object.partner_id.name or '')"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "- booked in"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid "<span class=\"o_stat_text\">هلال بابل</span>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid ""
+"<strong>Accountant Name:</strong>\n"
+"                            __________________________"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid ""
+"<strong>Accountant Signature:</strong>\n"
+"                            __________________________"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Closing:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Company Currency:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Currencies:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>From:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Opening Balance:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Opening:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Partner:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>To:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Total Credit:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "<strong>Total Debit:</strong>"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_account_report
+msgid "Accounting Report"
+msgstr "تقرير المحاسبة"
+
+#. module: qader_steel_suite
+#: model_terms:ir.actions.act_window,help:qader_steel_suite.action_mq_border_crossing
+msgid "Add a new border crossing"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.actions.act_window,help:qader_steel_suite.action_mq_car_plate
+msgid "Add a new car plate number"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.actions.act_window,help:qader_steel_suite.action_mq_driver_name
+msgid "Add a new driver name"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.actions.act_window,help:qader_steel_suite.action_mq_driver_phone
+msgid "Add a new driver phone number"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.actions.act_window,help:qader_steel_suite.action_mq_scale_no
+msgid "Add a new scale number"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_purchase_requisition__x_studio_remaining_amount
+msgid "Agreement Amount − Value."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_customer_statement_wizard_form
+msgid "All currencies"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Balance ("
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__border_crossing_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__border_crossing_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__border_crossing_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__border_crossing_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__border_crossing_id
+msgid "Border Crossing"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_mq_border_crossing
+msgid "Border Crossing History"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_mq_border_crossing
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_border_crossing
+msgid "Border Crossings"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_customer_statement_wizard_form
+msgid "Cancel"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_mq_car_plate
+msgid "Car Plate History"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__car_plate_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__car_plate_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__car_plate_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__car_plate_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__car_plate_id
+msgid "Car Plate No"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_mq_car_plate
+msgid "Car Plate Numbers"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_car_plate
+msgid "Car Plates"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Closing Balance ("
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__company_id
+msgid "Company"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Consolidated Total in"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid ""
+"Converted at the exchange rate of each entry date\n"
+"                                (the amounts already booked in the general ledger),\n"
+"                                not at today's rate."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__create_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__create_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__create_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__create_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__create_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__create_uid
+msgid "Created by"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__create_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__create_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__create_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__create_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__create_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__create_date
+msgid "Created on"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Credit ("
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__currency_id
+msgid "Currency"
+msgstr ""
+
+#. module: qader_steel_suite
+#. odoo-python
+#: code:addons/qader_steel_suite/wizard/customer_statement_wizard.py:0
+#: model:ir.model.fields.selection,name:qader_steel_suite.selection__customer_statement_wizard__party_type__customer
+msgid "Customer"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_customer_statement_engine
+msgid "Customer / Vendor Statement Engine"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_report_qader_steel_suite_statement
+msgid "Customer / Vendor Statement Report"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_report_qader_steel_suite_from_lines
+msgid "Customer / Vendor Statement Report (from Journal Items)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_customer_statement_wizard
+#: model:ir.actions.report,name:qader_steel_suite.action_report_customer_statement
+#: model:ir.ui.menu,name:qader_steel_suite.menu_customer_statement
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_customer_statement_wizard_form
+msgid "Customer Statement"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.report,name:qader_steel_suite.action_report_customer_statement_from_lines
+msgid "Customer Statement (from Journal Items)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Customer Statement Report"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_customer_statement_wizard
+msgid "Customer Statement Wizard"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Date"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Debit ("
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_picking_form_mq_bundle
+msgid "Demand"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_partner_ledger_report_handler__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_report__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_engine__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_template__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order_line__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_report_qader_steel_suite_from_lines__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_report_qader_steel_suite_statement__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order_line__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move_line__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__display_name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_rule__display_name
+msgid "Display Name"
+msgstr "اسم العرض"
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__driver_name_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__driver_name_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__driver_name_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__driver_name_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__driver_name_id
+msgid "Driver Name"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_mq_driver_name
+msgid "Driver Name History"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_mq_driver_name
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_driver_name
+msgid "Driver Names"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_mq_driver_phone
+msgid "Driver Phone History"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__driver_phone_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__driver_phone_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__driver_phone_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__driver_phone_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__driver_phone_id
+msgid "Driver Phone No"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_mq_driver_phone
+msgid "Driver Phone Numbers"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_driver_phone
+msgid "Driver Phones"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__date_from
+msgid "From"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_partner_ledger_report_handler__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_report__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_engine__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_template__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order_line__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_report_qader_steel_suite_from_lines__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_report_qader_steel_suite_statement__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order_line__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move_line__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_rule__id
+msgid "ID"
+msgstr "المُعرف"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_account_move
+msgid "Journal Entry"
+msgstr "قيد اليومية"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_account_move_line
+msgid "Journal Item"
+msgstr "عنصر اليومية"
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__write_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__write_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__write_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__write_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__write_uid
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__write_uid
+msgid "Last Updated by"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__write_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_border_crossing__write_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_car_plate__write_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_name__write_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__write_date
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__write_date
+msgid "Last Updated on"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_customer_statement_wizard_form
+msgid ""
+"Leave <b>Currency</b> empty to print every currency, each in\n"
+"                    its own section with its own opening balance, totals and\n"
+"                    closing balance."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_customer_statement_wizard__currency_id
+msgid ""
+"Leave empty to print every currency, each in its own section. Pick one to "
+"restrict the statement to that currency only."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid "Net Weight"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Opening Balance"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_sale_order_line__x_studio_po_price
+msgid ""
+"Optional per-unit purchase price. When set, it overrides the automatically "
+"computed price on a dropship purchase order line created from this sale "
+"line."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__partner_id
+msgid "Partner"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_account_partner_ledger_report_handler
+msgid "Partner Ledger Custom Handler"
+msgstr "المعالج المخصص لدفتر الأستاذ العام الخاص بالشريك"
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_driver_phone__name
+msgid "Phone Number"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_purchase_requisition__x_studio_value
+msgid "Price (Ton) × Total Ordered."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_customer_statement_wizard_form
+msgid "Print"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_product_template
+msgid "Product"
+msgstr "المنتج"
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Product / Description"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_stock_move_line
+msgid "Product Moves (Stock Move Line)"
+msgstr "تحركات المنتج (بنود حركة المخزون)"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_purchase_order
+msgid "Purchase Order"
+msgstr "أمر شراء"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_purchase_order_line
+msgid "Purchase Order Line"
+msgstr "بند أمر الشراء"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_purchase_requisition
+msgid "Purchase Requisition"
+msgstr "طلب الشراء"
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Quantity"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__purchase_order_ids
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__purchase_order_ids
+msgid "Related Purchase Orders"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__sale_order_ids
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__sale_order_ids
+msgid "Related Sales Orders"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_sale_order
+msgid "Sales Order"
+msgstr "أمر البيع"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "بند أمر المبيعات"
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__scale_no_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__scale_no_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_mq_scale_no__name
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__scale_no_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__scale_no_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__scale_no_id
+msgid "Scale No"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_mq_scale_no
+msgid "Scale No History"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.act_window,name:qader_steel_suite.action_mq_scale_no
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_scale_no
+msgid "Scale Numbers"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__purchase_order_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__purchase_order_id
+msgid "Source Purchase Order"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__sale_order_id
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__sale_order_id
+msgid "Source Sales Order"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__party_type
+msgid "Statement Type"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Statement in"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_stock_move
+msgid "Stock Move"
+msgstr "حركة المخزون"
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_stock_rule
+msgid "Stock Rule"
+msgstr "قاعدة المخزون"
+
+#. module: qader_steel_suite
+#. odoo-python
+#: code:addons/qader_steel_suite/wizard/customer_statement_wizard.py:0
+msgid "The 'From' date must not be after the 'To' date."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_customer_statement_wizard__date_to
+msgid "To"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Total ("
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Transaction"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model,name:qader_steel_suite.model_stock_picking
+msgid "Transfer"
+msgstr "تحويل"
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.purchase_order_form_mq_transportation_details
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_account_move_form_mq_transportation_details
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_sale_order_form_mq_transportation_details
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_stock_picking_form_mq_transportation_details
+msgid "Transportation Details"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.ui.menu,name:qader_steel_suite.menu_mq_transportation_root
+msgid "Transportation Info"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_move_form_mq_bundle
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_mq_bundle
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_picking_form_mq_bundle
+msgid "Unit"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Unit Price ("
+msgstr ""
+
+#. module: qader_steel_suite
+#. odoo-python
+#: code:addons/qader_steel_suite/wizard/customer_statement_wizard.py:0
+#: model:ir.model.fields.selection,name:qader_steel_suite.selection__customer_statement_wizard__party_type__vendor
+msgid "Vendor"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "Vendor Statement Report"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.statement_body
+msgid "at the historical rate:"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_total_ordered
+msgid "إجمالي الكمية المطلوبة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_total_payable
+msgid "إجمالي المستحق"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__mq_total_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__mq_total_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__mq_total_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__mq_total_weight
+msgid "إجمالي الوزن (طن)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__mq_total_net_weight
+msgid "إجمالي الوزن الصافي"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_bank_statement_line__mq_total_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move__mq_total_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__mq_total_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__mq_total_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__mq_total_bundle_qty
+msgid "إجمالي كمية الحزم"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_picking_form_mq_bundle
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_purchase_order_form_mq_bundle
+msgid "احتساب وزن القبان الصافي"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_price_ton
+msgid "السعر (طن)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_purchase_requisition__x_studio_agreement_amount
+msgid "السقف/القيمة الإجمالية المتفق عليها مع المورد - تُدخل يدويًا."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_value
+msgid "القيمة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__mq_quantity
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order_line__mq_quantity
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order_line__mq_quantity
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move__mq_quantity
+msgid "الكمية"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__mq_qty_received
+msgid "الكمية المستلمة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__mq_qty_delivered
+msgid "الكمية المسلّمة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_remaining_amount
+msgid "المبلغ المتبقي"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_purchase_requisition__x_studio_total_payable
+msgid ""
+"المبلغ المستحق دفعه لهذا المورد إجمالًا (res.partner.debit) - نفس حقل 'Total"
+" Payable' في نموذج جهة الاتصال."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__x_studio_net_weight
+msgid "الوزن الصافي"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_purchase_requisition_form_agreement_fields
+msgid "بيانات الاتفاقية (Purchase Agreement)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid "بيانات الدورة الكاملة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.server,name:qader_steel_suite.server_action_populate_requisition_products
+msgid "تعبئة كل المنتجات تلقائيًا"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_mq_bundle
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_picking_form_mq_bundle
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_purchase_order_form_mq_bundle
+msgid "تفاصيل الوزن"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__x_studio_shipping_cost_ton
+msgid "تكلفة الشحن (طن)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid "تنفيذ الدورة الكاملة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.server,name:qader_steel_suite.server_action_run_full_cycle
+msgid "تنفيذ الدورة الكاملة (بيع ← شراء ← مخزون ← فواتير)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.actions.server,name:qader_steel_suite.server_action_net_weight
+msgid "توزيع الوزن الصافي (Net Weight)"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order_line__x_studio_po_price
+msgid "سعر أمر الشراء"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid ""
+"سيتم توزيع الوزن الصافي (إن لم يكن موزّعًا مسبقًا)، ثم تأكيد أمر البيع، "
+"وأوامر الشراء المرتبطة، واعتماد كل حركات المخزون، وإنشاء وترحيل الفاتورة "
+"(وفاتورة المورد إن وجدت) مباشرة. هل تريد المتابعة؟"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model_terms:ir.ui.view,arch_db:qader_steel_suite.view_order_form_automation
+msgid ""
+"سيتم توزيع الوزن الصافي تناسبيًا على سطور المنتجات وتحديث سطر أجور النقل "
+"والتخليص، دون تأكيد أمر البيع. هل تريد المتابعة؟"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__x_studio_dropship_picking_count
+msgid "شحنات دروبشيب"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order__mq_scale_net_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order__mq_scale_net_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_picking__mq_scale_net_weight
+msgid "صافي وزن الميزان"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_vendor_id_currency_id
+msgid "عملة المورد"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_account_move_line__mq_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_order_line__mq_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_sale_order_line__mq_bundle_qty
+#: model:ir.model.fields,field_description:qader_steel_suite.field_stock_move__mq_bundle_qty
+msgid "كمية الحزم"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_purchase_requisition__x_studio_agreement_amount
+msgid "مبلغ الاتفاقية"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_purchase_requisition__x_studio_total_ordered
+msgid "مجموع qty_ordered لكل سطور الاتفاقية."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,help:qader_steel_suite.field_sale_order__mq_total_net_weight
+msgid ""
+"مجموع كميات سطور المنتجات المؤهلة (بعد استثناء الملاحظات والـ Sections "
+"والمنتجات الخدمية وسطر أجور النقل) - يجب أن يطابق قيمة Net Weight أعلاه بعد "
+"الضغط على زر Net Weight أو Confirm SO."
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_product__mq_bundle_multiplier
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_template__mq_bundle_multiplier
+msgid "مُعامِل الحزمة"
+msgstr ""
+
+#. module: qader_steel_suite
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_product__mq_is_bundle_weight
+#: model:ir.model.fields,field_description:qader_steel_suite.field_product_template__mq_is_bundle_weight
+msgid "وزن الحزمة"
+msgstr ""
