@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Generic List View for History Models -->
+    <record id="view_mq_generic_history_list" model="ir.ui.view">
+        <field name="name">mq.generic.history.list</field>
+        <field name="model">mq.driver.name</field>
+        <field name="priority">1000</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Actions for History Models -->
+    <record id="action_mq_driver_name" model="ir.actions.act_window">
+        <field name="name">Driver Names</field>
+        <field name="res_model">mq.driver.name</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a new driver name</p>
+        </field>
+    </record>
+
+    <record id="action_mq_driver_phone" model="ir.actions.act_window">
+        <field name="name">Driver Phone Numbers</field>
+        <field name="res_model">mq.driver.phone</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a new driver phone number</p>
+        </field>
+    </record>
+
+    <record id="action_mq_car_plate" model="ir.actions.act_window">
+        <field name="name">Car Plate Numbers</field>
+        <field name="res_model">mq.car.plate</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a new car plate number</p>
+        </field>
+    </record>
+
+    <record id="action_mq_border_crossing" model="ir.actions.act_window">
+        <field name="name">Border Crossings</field>
+        <field name="res_model">mq.border.crossing</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a new border crossing</p>
+        </field>
+    </record>
+
+    <record id="action_mq_scale_no" model="ir.actions.act_window">
+        <field name="name">Scale Numbers</field>
+        <field name="res_model">mq.scale.no</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a new scale number</p>
+        </field>
+    </record>
+
+    <!-- Menus -->
+    <menuitem id="menu_mq_transportation_root" 
+              name="Transportation Info" 
+              web_icon="base,static/description/icon.png"
+              sequence="50"/>
+
+    <menuitem id="menu_mq_driver_name" 
+              name="Driver Names" 
+              parent="menu_mq_transportation_root" 
+              action="action_mq_driver_name" 
+              sequence="10"/>
+
+    <menuitem id="menu_mq_driver_phone" 
+              name="Driver Phones" 
+              parent="menu_mq_transportation_root" 
+              action="action_mq_driver_phone" 
+              sequence="20"/>
+
+    <menuitem id="menu_mq_car_plate" 
+              name="Car Plates" 
+              parent="menu_mq_transportation_root" 
+              action="action_mq_car_plate" 
+              sequence="30"/>
+
+    <menuitem id="menu_mq_border_crossing" 
+              name="Border Crossings" 
+              parent="menu_mq_transportation_root" 
+              action="action_mq_border_crossing" 
+              sequence="40"/>
+
+    <menuitem id="menu_mq_scale_no" 
+              name="Scale Numbers" 
+              parent="menu_mq_transportation_root" 
+              action="action_mq_scale_no" 
+              sequence="50"/>
+</odoo>
