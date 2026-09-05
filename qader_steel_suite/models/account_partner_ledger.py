@@ -1,286 +1,146 @@
 # -*- coding: utf-8 -*-
-"""Per-currency display and per-partner currency totals for Odoo 19 Partner Ledger."""
+"""دفتر الشركاء (Partner Ledger) — عرض كل سطر بعملته + إجمالي لكل عملة.
+
+ما الذي يفعله هذا الملف
+-----------------------
+1. **تعبئة عمود Amount Currency** لكل سطر، بما فيها سطور عملة الشركة التي
+   يتركها أودو فارغة (القيمة موجودة في ``balance``).
+2. **إضافة صف إجمالي لكل عملة تحت كل شريك** — "IQD Total" و "USD Total" —
+   فيرى المحاسب إجمالي الدينار وحده وإجمالي الدولار وحده لنفس الزبون.
+
+إصلاح (19.0.1.3.0) — لماذا كان إجمالي الدينار مفقودًا
+------------------------------------------------------
+الاستعلام السابق كان ``COALESCE(SUM(amount_currency), 0.0)``، وهذا يعطي
+**صفرًا** لكل سطور عملة الشركة لأن أودو يترك ``amount_currency = 0`` عندما
+تكون عملة المستند هي عملة الشركة (القيمة في ``balance``). ثم كان الكود
+يتخطى أي مجموع صفري، فيختفي صف "IQD Total" ولا يظهر إلا "USD Total".
+
+الشرح الكامل وبقية المزالق (المقارنة، فروقات الصرف) في ترويسة
+``account_report_currency_utils``.
+
+مبدأ السلامة
+------------
+كل إضافة هنا **عرضية فقط**: لا تُنشئ أعمدة ولا تغيّر أرقام مدين/دائن/رصيد.
+واستدعاء ``super()`` نفسه ملفوف بـ try/except أيضًا — لأن الخطر الحقيقي ليس
+في كودنا بل في تغيّر توقيع الدالة في Enterprise بين الإصدارات.
+"""
 
 import logging
 
-from odoo import models, _
+from odoo import models
 from odoo.tools import SQL
-from odoo.tools.misc import formatLang
+
+from . import account_report_currency_utils as cur_utils
 
 _logger = logging.getLogger(__name__)
 
-AML_ID_KEYS = ('id', 'aml_id', 'move_line_id', 'line_id')
+PARTNER_GROUPBY = SQL('account_move_line.partner_id')
 
 
 class PartnerLedgerCurrencyHandler(models.AbstractModel):
     _inherit = 'account.partner.ledger.report.handler'
 
     # ------------------------------------------------------------------
-    # Helpers: line currency / amount
+    # 1) تعبئة خانة Amount Currency لكل سطر
     # ------------------------------------------------------------------
 
-    def _plc_currency_from_value(self, value):
-        """Resolve a currency record from common SQL-result shapes."""
-        if not value:
-            return self.env['res.currency']
-
-        if isinstance(value, int):
-            return self.env['res.currency'].browse(value).exists()
-
-        if isinstance(value, (tuple, list)) and value and isinstance(value[0], int):
-            return self.env['res.currency'].browse(value[0]).exists()
-
-        if getattr(value, '_name', None) == 'res.currency':
-            return value[:1]
-
-        return self.env['res.currency']
-
-    def _plc_resolve_currency(self, row):
-        """Return (currency, original_amount, aml) for one Partner Ledger AML row."""
-        currency = self.env['res.currency']
-        amount = None
-        aml = self.env['account.move.line']
-
-        if isinstance(row, dict):
-            currency = self._plc_currency_from_value(row.get('currency_id'))
-
-            if row.get('amount_currency') not in (None, False, ''):
-                amount = row['amount_currency']
-
-            aml_id = next(
-                (row.get(key) for key in AML_ID_KEYS if row.get(key)),
-                None,
-            )
-            if aml_id:
-                aml = self.env['account.move.line'].browse(aml_id).exists()
-
-        if aml:
-            if not currency:
-                currency = aml.currency_id or aml.company_currency_id
-            if amount is None:
-                amount = aml.amount_currency
-
-        if not currency and isinstance(row, dict):
-            company_id = row.get('company_id')
-            if company_id:
-                company = self.env['res.company'].browse(company_id).exists()
-                if company:
-                    currency = company.currency_id
-
-        if not currency:
-            currency = self.env.company.currency_id
-
-        # For company-currency lines Odoo may return an empty Amount Currency
-        # cell even though the accounting amount is present in balance.
-        if amount in (None, False, '') and aml:
-            company_currency = aml.company_currency_id or aml.company_id.currency_id
-            if currency == company_currency:
-                amount = aml.balance
-
-        return currency, amount, aml
-
-    def _plc_patch_move_line(self, options, line, row):
-        """Fill the standard Amount Currency cell without changing the report schema."""
-        cells = line.get('columns') or []
-        option_columns = options.get('columns') or []
-
-        if not cells or len(cells) != len(option_columns):
-            return
-
-        currency, amount, _aml = self._plc_resolve_currency(row)
-        if not currency or amount is None:
-            return
-
-        for index, column in enumerate(option_columns):
-            if column.get('expression_label') != 'amount_currency':
-                continue
-
-            cell = cells[index]
-            cell['no_format'] = amount
-            # formatLang already renders the currency symbol according to
-            # Odoo's currency formatting. Do not append currency.name again.
-            cell['name'] = formatLang(
-                self.env,
-                amount,
-                currency_obj=currency,
-            )
-
-    def _get_report_line_move_line(
-        self,
-        options,
-        aml_query_result,
-        partner_line_id,
-        init_bal_by_col_group,
-        level_shift=0,
-    ):
+    def _get_report_line_move_line(self, options, aml_query_result, *args, **kwargs):
+        """التوقيع مرن عمدًا (*args/**kwargs): توقيع هذه الدالة في Enterprise
+        تغيّر بين الإصدارات (إضافة currency_table، level_shift ...). تمرير
+        كل شيء كما هو إلى super يجعل الامتداد صامدًا أمام تلك التغييرات."""
         line = super()._get_report_line_move_line(
-            options,
-            aml_query_result,
-            partner_line_id,
-            init_bal_by_col_group,
-            level_shift=level_shift,
+            options, aml_query_result, *args, **kwargs
         )
 
         try:
-            self._plc_patch_move_line(options, line, aml_query_result)
+            cur_utils.patch_amount_currency_cell(
+                self.env, options, line, aml_query_result,
+            )
         except Exception:
-            # This is display-only enhancement; never break the accounting report.
+            # تحسين عرضي فقط — لا يجوز أن يكسر تقريرًا محاسبيًا.
             _logger.exception(
-                'partner_ledger_currency: could not patch Partner Ledger line'
+                'qader_steel_suite: تعذّر تعبئة خانة العملة في دفتر الشركاء'
             )
 
         return line
 
     # ------------------------------------------------------------------
-    # Per-partner currency totals
+    # 2) صف إجمالي لكل عملة تحت كل شريك
     # ------------------------------------------------------------------
 
     def _report_expand_unfoldable_line_partner_ledger(
-        self,
-        line_dict_id,
-        groupby,
-        options,
-        progress,
-        offset,
-        unfold_all_batch_data=None,
+        self, line_dict_id, groupby, options, progress, offset, *args, **kwargs
     ):
-        """Append one Amount Currency total row per currency for each partner.
-
-        This is the same extension point used successfully by the existing
-        custom module. We only add currency totals; no debit/credit totals are
-        created here.
-        """
         result = super()._report_expand_unfoldable_line_partner_ledger(
-            line_dict_id,
-            groupby,
-            options,
-            progress,
-            offset,
-            unfold_all_batch_data=unfold_all_batch_data,
+            line_dict_id, groupby, options, progress, offset, *args, **kwargs
         )
 
         try:
-            report = self.env['account.report'].browse(options['report_id'])
-            parsed = report._parse_line_id(line_dict_id)
-            if not parsed:
+            # (أ) توسيع فرعي (الشريك مقسَّمًا حسب شهر/حساب ...): إجمالي
+            #     الشريك كاملًا لا يخصّ المجموعة الفرعية، وعرضه تحتها رقم
+            #     مضلِّل. نتركها بلا إجماليات.
+            if groupby:
                 return result
 
-            _markup, _model, partner_id = parsed[-1]
-
-            # Only add totals once the normal AML expansion for this partner
-            # is complete. Otherwise pagination could duplicate the subtotal.
+            # (ب) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
+            #     الشريك، وإلا تكرّر الصف مع كل صفحة.
             if result.get('has_more'):
                 return result
 
-            # Database operations are isolated in a savepoint.  This is important
-            # because Odoo's outer transaction must remain usable even if a custom
-            # aggregation query is incompatible with a future Enterprise revision.
+            report = self.env['account.report'].browse(options['report_id'])
+
+            partner_id = cur_utils.extract_line_id_value(
+                report, line_dict_id, 'res.partner',
+            )
+            if not partner_id:
+                return result
+
+            # savepoint: يبقي معاملة أودو الخارجية سليمة حتى لو رفض
+            # PostgreSQL استعلام التجميع على إصدار Enterprise مستقبلي.
+            # groupby_ids: قصر الاستعلام على هذا الشريك وحده (الأداء).
             with self.env.cr.savepoint():
-                currency_data = report._compute_amount_currency_by_partner(options)
+                sums = cur_utils.compute_currency_sums(
+                    report, options, PARTNER_GROUPBY, groupby_ids=[partner_id],
+                )
 
-            partner_currency_data = currency_data.get(partner_id, {})
-
-            for currency_id, amount in sorted(partner_currency_data.items()):
-                if not amount:
-                    continue
-
-                currency = self.env['res.currency'].browse(currency_id).exists()
-                if not currency:
-                    continue
-
-                columns = []
-                for col in options.get('columns', []):
-                    expression_label = col.get('expression_label')
-
-                    if expression_label == 'amount_currency':
-                        columns.append({
-                            # formatLang already includes the currency symbol.
-                            'name': formatLang(
-                                self.env,
-                                amount,
-                                currency_obj=currency,
-                            ),
-                            'no_format': amount,
-                            'expression_label': 'amount_currency',
-                            'figure_type': 'string',
-                            'class': 'number',
-                        })
-                    else:
-                        columns.append({
-                            'name': '',
-                            'no_format': None,
-                            'expression_label': expression_label,
-                            'figure_type': 'string',
-                        })
-
-                result.setdefault('lines', []).append({
-                    'id': report._get_generic_line_id(
-                        None,
-                        None,
-                        parent_line_id=line_dict_id,
-                        markup='currency_total_%s' % currency_id,
-                    ),
-                    'name': _('%s Total') % currency.name,
-                    'level': 3,
-                    'columns': columns,
-                    'class': 'o_account_report_total custom-currency-total',
-                })
+            cur_utils.append_currency_total_lines(
+                self.env, report, options, result, line_dict_id, sums, partner_id,
+            )
 
         except Exception:
-            # A subtotal is non-critical. The savepoint above prevents a failed
-            # aggregation query from leaving the outer Odoo transaction aborted.
             _logger.exception(
-                'partner_ledger_currency: could not append currency totals'
+                'qader_steel_suite: تعذّر إضافة إجماليات العملات في دفتر الشركاء'
             )
 
         return result
 
 
 class AccountReportCurrencyTotals(models.Model):
+    """واجهة رفيعة تُبقي الميثودات القديمة متاحة لأي كود خارجي.
+
+    كان المنطق معرَّفًا هنا في النسخ السابقة؛ صار في
+    ``account_report_currency_utils`` ليتشاركه دفتر الشركاء ودفتر الأستاذ.
+
+    ⚠ تغيّر شكل القيمة المُعادة في 19.0.1.3.0: صارت
+    ``{column_group_key: {id: {currency_id: amount}}}`` بدل
+    ``{id: {currency_id: amount}}`` — لأن الشكل القديم كان يدمج مجموعات
+    الأعمدة (فترات المقارنة) في سلة واحدة وينتج رقمًا خاطئًا.
+    """
     _inherit = 'account.report'
 
-    def _get_query_amount_currency_sums(self, options) -> SQL:
-        """Build the currency-total query using the Partner Ledger report domain."""
-        queries = []
+    def _get_query_amount_currency_sums(self, options, groupby_ids=None) -> SQL:
+        return cur_utils.build_currency_sums_query(
+            self, options, PARTNER_GROUPBY, groupby_ids,
+        )
 
-        for column_group_key, column_group_options in self._split_options_per_column_group(options).items():
-            query = self._get_report_query(column_group_options, 'from_beginning')
-            queries.append(SQL(
-                """
-                SELECT
-                    account_move_line.partner_id AS groupby,
-                    account_move_line.currency_id AS currency_id,
-                    %s AS column_group_key,
-                    COALESCE(SUM(account_move_line.amount_currency), 0.0) AS amount_currency
-                FROM %s
-                WHERE %s
-                  AND account_move_line.partner_id IS NOT NULL
-                  AND account_move_line.currency_id IS NOT NULL
-                GROUP BY account_move_line.partner_id, account_move_line.currency_id
-                """,
-                column_group_key,
-                query.from_clause,
-                query.where_clause,
-            ))
+    def _compute_amount_currency_by_partner(self, options, groupby_ids=None):
+        """``{column_group_key: {partner_id: {currency_id: amount}}}``."""
+        return cur_utils.compute_currency_sums(
+            self, options, PARTNER_GROUPBY, groupby_ids,
+        )
 
-        return SQL(' UNION ALL ').join(queries)
-
-    def _compute_amount_currency_by_partner(self, options):
-        """Return {partner_id: {currency_id: amount}} for the report scope."""
-        query = self._get_query_amount_currency_sums(options)
-        self.env.cr.execute(query)
-        rows = self.env.cr.dictfetchall()
-
-        data = {}
-        for row in rows:
-            partner_id = row.get('groupby')
-            currency_id = row.get('currency_id')
-            amount = float(row.get('amount_currency') or 0.0)
-            if not partner_id or not currency_id:
-                continue
-            data.setdefault(partner_id, {})
-            data[partner_id][currency_id] = (
-                data[partner_id].get(currency_id, 0.0) + amount
-            )
-
-        return data
+    def _compute_amount_currency_by_account(self, options, groupby_ids=None):
+        """``{column_group_key: {account_id: {currency_id: amount}}}``."""
+        return cur_utils.compute_currency_sums(
+            self, options, SQL('account_move_line.account_id'), groupby_ids,
+        )

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Qader Steel Suite - Sales, Purchase, Delivery & Accounting",
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "category": "Sales",
     "summary": "All-in-one operations suite: bundle/weight calculator, driver & "
                "transportation info, multi-currency partner ledger and "
@@ -24,18 +24,25 @@ into one, so they can be installed, upgraded and maintained together:
    report layout extensions (driver info block, no-taxes layout,
    forced report language).
 
-3. **Partner Ledger - Amount in Document Currency** (formerly
+3. **Per-currency totals on the accounting reports** (formerly
    ``partner_ledger_currency``, requires Odoo Enterprise ``account_reports``)
-   Fills the "Amount Currency" column of the Partner Ledger for every
-   line (including company-currency lines) and can optionally add a
-   "Currency" column - see the Notes section below, this extra column
-   is shipped disabled by default exactly as in the original module.
+   Fills the "Amount Currency" column of the **Partner Ledger** and the
+   **General Ledger** for every line - including company-currency lines,
+   which Odoo leaves blank because it stores their value in ``balance``
+   instead of ``amount_currency`` - and adds one "<CUR> Total" row per
+   currency under each partner (Partner Ledger) and under each account
+   (General Ledger). A partner holding both IQD and USD documents
+   therefore shows an IQD total on its own and a USD total on its own.
+   Can optionally add a "Currency" column - see the Notes section below,
+   this extra column is shipped disabled by default exactly as in the
+   original module.
 
 4. **Customer / Vendor Statement Report** (formerly
    ``customer_statement_report``)
    Multi-currency partner statement with product-level detail, split
-   into one section per currency, plus a consolidated company-currency
-   total.
+   into one section per currency, opened by a "Balances by Currency"
+   summary table, plus a consolidated company-currency total. Supports
+   both the customer and the vendor side (``party_type`` on the wizard).
 
 5. **Full-Cycle Sale Automation & Requisition Auto-Populate**
    A "Run Full Cycle" button/action on Sale Orders that, per management's

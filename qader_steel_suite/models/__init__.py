@@ -4,6 +4,8 @@ from . import sale_order
 from . import purchase_order
 from . import stock_picking
 from . import account_move
+from . import account_report_currency_utils
 from . import account_partner_ledger
+from . import account_general_ledger
 from . import purchase_requisition
 from . import sale_order_automation
