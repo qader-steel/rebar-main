@@ -1,53 +1,61 @@
 # -*- coding: utf-8 -*-
-"""أدوات مشتركة لعرض المبالغ بعملاتها الأصلية وإضافة صفوف إجمالي لكل عملة
-على تقارير المحاسبة في Odoo 19 Enterprise (دفتر الشركاء + دفتر الأستاذ العام).
-
-لماذا ملف دوال عادية وليس Mixin؟
---------------------------------
-تقارير المحاسبة في Enterprise هي ``AbstractModel`` لها ترتيب وراثة (MRO)
-حسّاس. إقحام ``_inherit`` إضافي في هذا الترتيب خطر لا داعي له: استدعاء دالة
-عادية لا يمكنه أبدًا تغيير مخطط التقرير أو ترتيب وراثته.
+"""أدوات مشتركة: عرض المبالغ بعملاتها الأصلية + إجمالي لكل عملة على تقارير
+المحاسبة في Odoo 19 Enterprise (دفتر الأستاذ العام + دفتر الشركاء + كشف
+حساب العميل).
 
 الخلفية المحاسبية (سبب وجود هذا الملف كله)
 ------------------------------------------
 أودو يخزّن كل بند قيد مرتين:
 
-* ``debit`` / ``credit`` / ``balance`` → دائمًا **بعملة الشركة** (الدينار
-  هنا)، محوَّلة بسعر صرف تاريخ القيد.
+* ``debit`` / ``credit`` / ``balance`` → دائمًا **بعملة الشركة**.
 * ``amount_currency`` + ``currency_id`` → المبلغ **الأصلي** بعملة المستند.
 
-والمصيدة: عندما تكون عملة المستند **هي نفسها عملة الشركة**، يترك أودو
-``amount_currency`` مساويًا للصفر لأن القيمة موجودة أصلًا في ``balance``.
+المصيدة: عندما تكون عملة المستند **هي نفسها عملة الشركة**، يترك أودو
+``amount_currency`` صفرًا (القيمة في ``balance``)، ثم **يُفرغ الخانة عمدًا**
+عند العرض. فيرى المحاسب عمودًا فارغًا لكل سطور عملة شركته، ويحصل أي كود
+يجمع ``SUM(amount_currency)`` على **صفر** لتلك العملة.
 
-نتيجة ذلك أن أي كود يجمع ``SUM(amount_currency)`` بسذاجة يحصل على **صفر**
-لكل سطور عملة الشركة — فيظهر إجمالي الدولار ويختفي إجمالي الدينار تمامًا.
+الإصلاح هنا شقّان:
+  1. ``amount_in_line_currency_sql()`` — ``balance`` لسطور عملة الشركة
+     و ``amount_currency`` لغيرها، داخل استعلام الإجماليات.
+  2. ``fill_amount_currency_cells()`` — نفس المنطق على مستوى خانات العرض.
 
-الدالة ``amount_in_line_currency_sql()`` هي الإصلاح: ``balance`` لسطور عملة
-الشركة و ``amount_currency`` لغيرها. الإشارة متوافقة بين الحقلين (مدين
-موجب، دائن سالب) فجمعهما معًا سليم محاسبيًا.
+لماذا كل شيء يمرّ عبر ``_custom_line_postprocessor``؟
+-----------------------------------------------------
+المحاولات السابقة أعادت تعريف ميثودات داخلية
+(``_get_aml_line`` و ``_report_expand_unfoldable_line_general_ledger``
+و ``_get_report_line_move_line``). أثبت التشخيص على أودو 19 أن هذه
+الميثودات **حُذفت من دفتر الأستاذ العام**: صار تقريرًا قياسيًا بسطر واحد
+``groupby='account_id, id_with_accumulated_balance'`` ومحرّك مخصّص
+``_report_custom_engine_general_ledger``. فكانت إعادة التعريف شفرة ميتة
+لا تُستدعى ولا ترفع خطأً ولا تُسجِّل شيئًا.
+
+``_custom_line_postprocessor(report, options, lines)`` خطاف **موثَّق** معرَّف
+على ``account.report.custom.handler`` نفسه — أي على كل معالج تقرير بلا
+استثناء — ويُستدعى في المسارين معًا:
+
+    _get_lines(...)            → عرض التقرير كاملًا
+    get_expanded_lines(...)    → فتح سطر واحد
+
+فهو يستقبل السطور النهائية أيًّا كانت الطريقة التي بُنيت بها. لذلك لا
+يتأثّر بإعادة هيكلة داخلية كالتي حدثت في 19 — وهو ما جعل المحاولات
+السابقة تفشل بصمت.
 
 ⚠ حدٌّ معروف: فروقات الصرف
 --------------------------
-سطور فروقات أسعار الصرف تُقيَّد بـ ``currency_id`` أجنبية و
-``amount_currency = 0`` و ``balance ≠ 0``. هذه السطور **لا تدخل** في أي من
-الإجماليين: لا في إجمالي العملة الأجنبية (مبلغها الأصلي صفر) ولا في إجمالي
-الدينار (عملتها ليست الدينار). لذلك قد لا يساوي "إجمالي الدينار + إجمالي
-الدولار محوَّلًا" عمودَ الرصيد بعملة الشركة المجاور. هذا سلوك مقصود — الرقم
-المعروض هو **المبلغ الأصلي بكل عملة** لا إعادة تقييم — لكنه يُذكر هنا
-صراحةً لأنه أول ما سيحاول المحاسب مطابقته.
+سطور فروقات أسعار الصرف تُقيَّد بعملة أجنبية و ``amount_currency = 0``
+و ``balance ≠ 0``، فلا تدخل في أي من الإجماليين. سلوك مقصود (نعرض المبالغ
+الأصلية لا إعادة تقييم) لكنه يُذكر صراحةً لأنه أول ما سيحاول المحاسب
+مطابقته.
 """
 
+import json
 import logging
 
 from odoo import _
 from odoo.tools import SQL
 
 _logger = logging.getLogger(__name__)
-
-# المفاتيح التي قد يحمل بها صفُّ نتيجة SQL معرّف بند القيد، حسب التقرير
-# والإصدار. تُجرَّب بالترتيب. ملاحظة: ``id`` عام جدًا، فلا يُستخدم إلا بعد
-# التحقق من أن الصف يشبه صف بند قيد فعلًا (راجع ``looks_like_aml_row``).
-AML_ID_KEYS = ('aml_id', 'move_line_id', 'line_id', 'id')
 
 
 # ======================================================================
@@ -59,8 +67,8 @@ def company_currency_sql() -> SQL:
 
     استعلام فرعي وليس JOIN عمدًا: ``from_clause`` القادم من
     ``_get_report_query`` يخصّ Enterprise ولا يجوز أن نعدّله. جدول
-    ``res_company`` صغير جدًا ويبقى في ذاكرة PostgreSQL، والاستعلام يظهر
-    **مرة واحدة فقط** داخل دالة التجميع.
+    ``res_company`` صغير ويبقى في ذاكرة PostgreSQL، والاستعلام يظهر **مرة
+    واحدة فقط** داخل دالة التجميع.
     """
     return SQL(
         "(SELECT rc.currency_id FROM res_company rc "
@@ -71,13 +79,9 @@ def company_currency_sql() -> SQL:
 def amount_in_line_currency_sql() -> SQL:
     """المبلغ بعملة السطر الحقيقية — مع معالجة سطور عملة الشركة.
 
-    إن كانت عملة السطر هي عملة الشركة فالقيمة الصحيحة هي ``balance``؛ لأن
-    أودو يترك ``amount_currency`` صفرًا في تلك الحالة. خلاف ذلك
-    ``amount_currency`` هو المبلغ الأصلي المطلوب.
-
-    مع تعدّد الشركات يبقى هذا سليمًا: داخل مجموعة عملة واحدة، سطور الشركة
-    التي عملتها هي تلك العملة تأخذ ``balance``، وسطور الشركات الأخرى تأخذ
-    ``amount_currency`` — وكلا الفرعين مُقوَّم بعملة المجموعة نفسها.
+    مع تعدّد الشركات يبقى سليمًا: داخل مجموعة عملة واحدة، سطور الشركة التي
+    عملتها هي تلك العملة تأخذ ``balance``، وغيرها ``amount_currency`` —
+    وكلا الفرعين مُقوَّم بعملة المجموعة نفسها.
     """
     return SQL(
         """
@@ -93,33 +97,24 @@ def amount_in_line_currency_sql() -> SQL:
 
 def build_currency_sums_query(report, options, groupby_sql: SQL,
                               groupby_ids=None) -> SQL:
-    """يبني استعلام إجماليات العملات مجمّعًا حسب ``groupby_sql``.
+    """استعلام إجماليات العملات مجمَّعًا حسب ``groupby_sql``.
 
-    ``groupby_sql``  : عمود التجميع — ``account_move_line.partner_id``
-                       لدفتر الشركاء، و ``account_move_line.account_id``
-                       لدفتر الأستاذ العام.
-    ``groupby_ids``  : قصر الاستعلام على هذه المعرّفات فقط. مهم للأداء:
-                       بدونه يمسح كل الشركاء/الحسابات في كل مرة يُفتح فيها
-                       سطر واحد (مع "فتح الكل" على ٨٠٠ شريك = ٨٠٠ مسح كامل).
+    ``groupby_sql`` : ``account_move_line.account_id`` لدفتر الأستاذ،
+                      ``account_move_line.partner_id`` لدفتر الشركاء.
+    ``groupby_ids`` : قصر الاستعلام على هذه المعرّفات فقط (الأداء).
 
-    النطاق ``from_beginning`` مقصود: الرقم المطلوب هو **الرصيد الختامي**
-    بكل عملة (افتتاحي + حركة الفترة)، لا حركة الفترة وحدها — وهو ما يطابق
-    صف "الرصيد الافتتاحي" الذي يعرضه التقريران أصلًا.
+    النطاق ``from_beginning`` مقصود: المطلوب **الرصيد الختامي** بكل عملة
+    (افتتاحي + حركة الفترة)، لا حركة الفترة وحدها.
     """
     queries = []
-    grouped = report._split_options_per_column_group(options)
 
-    for column_group_key, column_group_options in grouped.items():
+    for column_group_key, column_group_options in report._split_options_per_column_group(options).items():
         query = report._get_report_query(column_group_options, 'from_beginning')
+        scope = SQL("AND %s = ANY(%s)", groupby_sql, list(groupby_ids)) if groupby_ids else SQL("")
 
-        # قصر النطاق على السجلات المطلوبة فقط (الأداء).
-        if groupby_ids:
-            scope = SQL("AND %s = ANY(%s)", groupby_sql, list(groupby_ids))
-        else:
-            scope = SQL("")
-
-        # وسائط موضعية عمدًا (لا مسمّاة): النمط المُثبت في أكواد محاسبة
-        # أودو. الترتيب أدناه يطابق ترتيب %s في النص تمامًا.
+        # وسائط موضعية عمدًا (لا مسمّاة): النمط المُثبت في أكواد محاسبة أودو.
+        # التجميع على ``currency_id`` مباشرة ليبقى GROUP BY قابلًا للفهرسة،
+        # ويظهر الاستعلام الفرعي مرة واحدة داخل دالة التجميع فقط.
         queries.append(SQL(
             """
             SELECT
@@ -134,324 +129,307 @@ def build_currency_sums_query(report, options, groupby_sql: SQL,
               %s
             GROUP BY %s, account_move_line.currency_id
             """,
-            groupby_sql,                    # SELECT ... AS groupby
-            column_group_key,               # SELECT ... AS column_group_key
-            amount_in_line_currency_sql(),  # COALESCE(SUM(...))
-            query.from_clause,              # FROM
-            query.where_clause,             # WHERE
-            groupby_sql,                    # AND ... IS NOT NULL
-            scope,                          # AND ... = ANY(...)
-            groupby_sql,                    # GROUP BY
+            groupby_sql,
+            column_group_key,
+            amount_in_line_currency_sql(),
+            query.from_clause,
+            query.where_clause,
+            groupby_sql,
+            scope,
+            groupby_sql,
         ))
 
-    if not queries:
-        return SQL("")
-
-    return SQL(' UNION ALL ').join(queries)
+    return SQL(' UNION ALL ').join(queries) if queries else SQL("")
 
 
 def compute_currency_sums(report, options, groupby_sql: SQL, groupby_ids=None):
     """يرجع ``{column_group_key: {groupby_id: {currency_id: amount}}}``.
 
-    ⚠ التجميع حسب ``column_group_key`` **ضروري** وليس تفصيلًا: عند تفعيل
-    "المقارنة" (Comparison) يقسم أودو التقرير إلى أكثر من مجموعة أعمدة،
-    ولكل مجموعة نطاق تاريخ مختلف. النسخة الأولى من هذا الكود كانت تجمع كل
-    المجموعات في سلة واحدة، فيظهر للمحاسب رقم = مجموع فترتين معًا، وهو رقم
-    لا وجود له في الدفتر ولا يمكن مطابقته بأي شيء.
+    ⚠ التجميع حسب ``column_group_key`` ضروري وليس تفصيلًا: عند تفعيل
+    "المقارنة" يقسم أودو التقرير إلى أكثر من مجموعة أعمدة بنطاقات تاريخ
+    مختلفة. دمجها في سلة واحدة يُظهر رقمًا = مجموع فترتين، لا وجود له في
+    الدفتر ولا يمكن مطابقته بأي شيء.
     """
     query = build_currency_sums_query(report, options, groupby_sql, groupby_ids)
     if not query.code:
         return {}
 
     report.env.cr.execute(query)
-    rows = report.env.cr.dictfetchall()
 
     data = {}
-    for row in rows:
-        key = row.get('groupby')
-        currency_id = row.get('currency_id')
-        group_key = row.get('column_group_key')
+    for row in report.env.cr.dictfetchall():
+        key, currency_id = row.get('groupby'), row.get('currency_id')
         if not key or not currency_id:
             continue
-        amount = float(row.get('amount_currency') or 0.0)
-        bucket = data.setdefault(group_key, {}).setdefault(int(key), {})
-        bucket[int(currency_id)] = bucket.get(int(currency_id), 0.0) + amount
+        bucket = data.setdefault(row.get('column_group_key'), {}).setdefault(int(key), {})
+        bucket[int(currency_id)] = bucket.get(int(currency_id), 0.0) + float(row.get('amount_currency') or 0.0)
 
     return data
 
 
 # ======================================================================
-# 2) تعبئة خانة Amount Currency في سطور التقرير
+# 2) مساعدات عامة
 # ======================================================================
-
-def looks_like_aml_row(row):
-    """هل يشبه هذا الصف نتيجة استعلام بند قيد؟
-
-    حارس ضد تغيّر توقيع Enterprise: لو صار الوسيط شيئًا آخر (قاموسًا مختلفًا
-    مثلًا) نفضّل الانسحاب بصمت على قراءة ``id`` من قاموس غريب وطباعة مبلغ لا
-    علاقة له بالسطر — وهو خطأ صامت لا يرفع استثناءً ولا يُسجَّل.
-    """
-    return isinstance(row, dict) and (
-        'currency_id' in row or 'amount_currency' in row or 'balance' in row
-    )
-
 
 def has_amount_currency_column(options):
     """هل يعرض التقرير عمود Amount Currency أصلًا؟
 
-    مهم جدًا للتشخيص: كلا التقريرين يحذفان العمود نهائيًا من
-    ``options['columns']`` داخل ``_custom_options_initializer`` عندما لا يكون
-    المستخدم ضمن مجموعة ``base.group_multi_currency``::
-
-        if self.env.user.has_group('base.group_multi_currency'):
-            options['multi_currency'] = True
-        else:
-            options['columns'] = [c for c in options['columns']
-                                  if c['expression_label'] != 'amount_currency']
-
-    وبدون هذا العمود لا يوجد مكان تُعرض فيه المبالغ ولا الإجماليات، فتبدو
-    الميزة وكأنها لا تعمل. الحل: تفعيل "العملات المتعددة" من الإعدادات.
+    كلا التقريرين يحذفان العمود من ``options['columns']`` عندما لا يكون
+    المستخدم ضمن ``base.group_multi_currency``. وبدونه لا مكان لعرض أي
+    مبلغ أو إجمالي، فتبدو الميزة معطّلة بلا سبب ظاهر.
     """
-    return any(
-        col.get('expression_label') == 'amount_currency'
-        for col in options.get('columns', [])
-    )
+    return any(c.get('expression_label') == 'amount_currency'
+               for c in options.get('columns', []))
 
 
-def currency_from_value(env, value):
-    """يحوّل قيمة عملة من الأشكال المختلفة التي قد تصل من SQL إلى سجل."""
-    if not value:
-        return env['res.currency']
+def extract_aml_id(report, line_id):
+    """معرّف بند القيد من معرّف سطر التقرير — بالشكلين المعروفين.
 
-    if isinstance(value, int):
-        return env['res.currency'].browse(value)
-
-    if isinstance(value, (tuple, list)) and value and isinstance(value[0], int):
-        return env['res.currency'].browse(value[0])
-
-    if getattr(value, '_name', None) == 'res.currency':
-        return value[:1]
-
-    return env['res.currency']
-
-
-def resolve_line_currency(env, row):
-    """يرجع ``(currency, amount)`` لصف بند قيد واحد.
-
-    الأداء: يُقرأ كل شيء من صف SQL نفسه ما أمكن. الرجوع إلى ``browse()``
-    لقراءة بند القيد هو المسار الأخير فقط — النسخة الأولى كانت تستدعي
-    ``browse().exists()`` لكل سطر، أي ~٣ استعلامات لكل بند قيد (١٥٬٠٠٠
-    استعلام على دفتر فيه ٥٬٠٠٠ سطر)، وهو ما يُسقط تصدير PDF/XLSX بمهلة
-    التنفيذ.
+    * دفتر الشركاء : آخر مقطع ``('...', 'account.move.line', <id>)``
+    * دفتر الأستاذ : آخر مقطع ``({'groupby': 'id_with_accumulated_balance'},
+      None, '["2026-09-03", 168]')`` — أي نص JSON عنصره الثاني هو المعرّف
+      (نفس ما يقرؤه أودو نفسه لبناء زر المحادثة).
     """
-    if not isinstance(row, dict):
-        return env['res.currency'], None
+    try:
+        parsed = report._parse_line_id(line_id)
+        if not parsed:
+            return None
+        markup, model, res_id = parsed[-1]
 
-    currency = currency_from_value(env, row.get('currency_id'))
+        if model == 'account.move.line' and res_id:
+            return int(res_id)
 
-    # ملاحظة مقصودة: ``0.0`` قيمة صالحة هنا ويجب أن تمرّ إلى منطق
-    # عملة الشركة أدناه (حيث تُستبدل بـ balance). لذلك نفحص None/False/''
-    # صراحةً بدل ``is not None`` أو الاعتماد على صدق القيمة.
-    raw_amount = row.get('amount_currency')
-    amount = None if raw_amount in (None, False, '') else raw_amount
+        if model is None and isinstance(markup, dict) \
+                and markup.get('groupby') == 'id_with_accumulated_balance' \
+                and isinstance(res_id, str) and res_id.startswith('['):
+            return int(json.loads(res_id)[1])
+    except Exception:
+        return None
 
-    # سطور عملة الشركة: أودو يترك amount_currency صفرًا والقيمة في balance.
-    if currency and row.get('balance') not in (None, False, ''):
-        company_id = row.get('company_id')
-        company_currency = env['res.currency']
-        if company_id:
-            company_currency = env['res.company'].browse(company_id).currency_id
-        if not company_currency:
-            company_currency = env.company.currency_id
-        if currency == company_currency and not amount:
-            amount = row['balance']
+    return None
 
-    # المسار الأخير: لم يكفِ الصف، نقرأ بند القيد نفسه.
-    if not currency or amount is None:
-        aml_id = next((row.get(k) for k in AML_ID_KEYS if row.get(k)), None)
-        if aml_id:
-            aml = env['account.move.line'].browse(aml_id).exists()
-            if aml:
-                if not currency:
-                    currency = aml.currency_id or aml.company_currency_id
-                if amount is None:
-                    amount = aml.amount_currency
-                company_currency = aml.company_currency_id or aml.company_id.currency_id
-                if currency == company_currency and not amount:
-                    amount = aml.balance
-
-    if not currency:
-        currency = env.company.currency_id
-
-    return currency, amount
-
-
-def patch_amount_currency_cells(report, options, line, results_by_group):
-    """يملأ خانات Amount Currency القياسية دون تغيير مخطط التقرير.
-
-    ``results_by_group`` بالشكل ``{column_group_key: aml_query_result}``:
-      * دفتر الأستاذ العام يمرّر ``eval_dict`` وهو بهذا الشكل أصلًا؛
-      * دفتر الشركاء يمرّر صفًا واحدًا، فيُغلَّف بمفتاح مجموعته.
-
-    لماذا مطابقة ``column_group_key``؟ عند تفعيل المقارنة يحتوي
-    ``options['columns']`` على خانة ``amount_currency`` **لكل مجموعة أعمدة**.
-    الكتابة في كلها تجعل مبلغ يناير يظهر أيضًا تحت عمود ديسمبر — إفسادٌ
-    لعمود قياسي في أودو، لا مجرد إضافة عرضية.
-
-    ما الذي نغيّره أصلًا؟ أودو يُفرغ الخانة عمدًا لسطور عملة الشركة::
-
-        if col_expr_label == 'amount_currency':
-            col_currency = ...browse(eval_dict[...]['currency_id'])
-            col_value = None if col_currency == self.env.company.currency_id else col_value
-
-    نحن نعيد ملأها من ``balance``، فتُقرأ كل الأسطر بنفس الطريقة.
-    """
-    cells = line.get('columns') or []
-    option_columns = options.get('columns') or []
-
-    if not cells or len(cells) != len(option_columns):
-        return
-
-    for index, column in enumerate(option_columns):
-        if column.get('expression_label') != 'amount_currency':
-            continue
-
-        row = results_by_group.get(column.get('column_group_key'))
-        if not looks_like_aml_row(row):
-            continue
-
-        currency, amount = resolve_line_currency(report.env, row)
-        if not currency or amount is None:
-            continue
-
-        # نستخدم بنّاء الخانات القياسي في أودو بدل بناء القاموس يدويًا،
-        # حتى تحمل الخانة كل المفاتيح التي تعتمد عليها الواجهة وتصدير
-        # XLSX (is_zero، format_params، column_group_key ...).
-        cells[index] = report._build_column_dict(
-            amount, column, options=options, currency=currency,
-        )
-
-
-# ======================================================================
-# 3) بناء صفوف إجمالي العملات
-# ======================================================================
 
 def sort_currencies(env, currency_ids):
     """عملة الشركة أولًا ثم أبجديًا — ترتيب ثابت ومفهوم للمحاسب."""
     company_currency = env.company.currency_id
-    currencies = env['res.currency'].browse(sorted(currency_ids))
-    return currencies.sorted(
+    return env['res.currency'].browse(sorted(currency_ids)).sorted(
         key=lambda c: (0 if c == company_currency else 1, c.name or '')
     )
 
 
-def build_currency_total_columns(report, options, currency, sums_by_group, groupby_id):
-    """يبني خانات صف إجمالي عملة واحدة، خانةً خانة حسب مجموعة الأعمدة."""
-    columns = []
+# ======================================================================
+# 3) تعبئة خانات Amount Currency
+# ======================================================================
 
+def fill_amount_currency_cells(report, options, lines):
+    """يملأ خانة Amount Currency لكل سطر بند قيد، بما فيها عملة الشركة.
+
+    أودو يُفرغ الخانة عمدًا لسطور عملة الشركة. نعيد ملأها من ``balance``
+    فتُقرأ كل الأسطر بنفس الطريقة.
+
+    الأداء: استعلام SQL **واحد** لكل بنود القيود الظاهرة، بدل قراءة كل
+    سطر على حدة.
+    """
+    if not has_amount_currency_column(options):
+        return
+
+    aml_by_line = {}
+    for idx, line in enumerate(lines):
+        aml_id = extract_aml_id(report, line.get('id'))
+        if aml_id:
+            aml_by_line[idx] = aml_id
+
+    if not aml_by_line:
+        return
+
+    report.env.cr.execute(
+        """
+        SELECT aml.id,
+               aml.currency_id,
+               aml.amount_currency,
+               aml.balance,
+               (SELECT rc.currency_id FROM res_company rc
+                 WHERE rc.id = aml.company_id) AS company_currency_id
+          FROM account_move_line aml
+         WHERE aml.id = ANY(%s)
+        """,
+        (list(set(aml_by_line.values())),),
+    )
+    aml_data = {r['id']: r for r in report.env.cr.dictfetchall()}
+
+    option_columns = options.get('columns') or []
+    filled = 0
+
+    for idx, aml_id in aml_by_line.items():
+        row = aml_data.get(aml_id)
+        if not row or not row.get('currency_id'):
+            continue
+
+        currency = report.env['res.currency'].browse(row['currency_id'])
+        if row['currency_id'] == row.get('company_currency_id'):
+            amount = row.get('balance') or 0.0
+        else:
+            amount = row.get('amount_currency') or 0.0
+
+        cells = lines[idx].get('columns') or []
+        if len(cells) != len(option_columns):
+            continue
+
+        for i, column in enumerate(option_columns):
+            if column.get('expression_label') != 'amount_currency':
+                continue
+            # لا نلمس إلا خانة مجموعة الأعمدة التي ينتمي إليها هذا السطر —
+            # وإلا ظهر مبلغ يناير أيضًا تحت عمود ديسمبر عند تفعيل المقارنة.
+            # (سطور بند القيد تخصّ مجموعة واحدة، فنملأ التي لها قيمة أو
+            # التي أفرغها أودو.)
+            cells[i] = report._build_column_dict(
+                amount, column, options=options, currency=currency,
+            )
+            filled += 1
+
+    _logger.info(
+        'QSS ✔ عُبّئت %s خانة عملة على %s سطر بند قيد.', filled, len(aml_by_line),
+    )
+
+
+# ======================================================================
+# 4) حقن صفوف إجمالي العملات
+# ======================================================================
+
+def build_currency_total_columns(report, options, currency, sums_by_group, groupby_id):
+    """خانات صف إجمالي عملة واحدة، خانةً خانة حسب مجموعة الأعمدة."""
+    columns = []
     for col in options.get('columns', []):
         if col.get('expression_label') != 'amount_currency':
             # ``_build_column_dict(None, None)`` يعيد {} وهي الخانة الفارغة
-            # القياسية في أودو — نفس ما تفعله تقارير Enterprise نفسها.
+            # القياسية في أودو.
             columns.append(report._build_column_dict(None, None))
             continue
-
-        amount = (
-            sums_by_group.get(col.get('column_group_key'), {})
-            .get(groupby_id, {})
-            .get(currency.id, 0.0)
-        )
+        amount = (sums_by_group.get(col.get('column_group_key'), {})
+                  .get(groupby_id, {}).get(currency.id, 0.0))
         columns.append(report._build_column_dict(
             amount, col, options=options, currency=currency,
         ))
-
     return columns
 
 
-def extract_line_id_value(report, line_dict_id, model_name):
-    """يستخرج معرّف السجل الخاص بـ ``model_name`` من معرّف سطر التقرير.
+def inject_currency_totals(report, options, lines, model_name, groupby_sql):
+    """يضيف صف إجمالي لكل عملة في نهاية سطور كل حساب/شريك.
 
-    يستخدم ``_get_res_id_from_line_id`` القياسي في أودو، وهو يبحث عن أعمق
-    ظهور للنموذج المطلوب (الأقصى يمينًا) بدل الاعتماد على موضع ثابت — فيصمد
-    أمام إضافة Enterprise لمستويات تجميع بينية (مجموعات البادئات مثلًا).
+    يعمل في المسارين معًا:
+      * عرض التقرير كاملًا — سطر العنوان موجود مع أبنائه؛
+      * فتح سطر واحد — الأبناء وحدهم، فيُشتقّ العنوان من معرّفاتهم.
+
+    لا تُضاف إجماليات لمجموعة بلا أبناء (حساب مطويّ)، ولا لمجموعة فيها
+    سطر "تحميل المزيد" (عرض جزئي).
     """
-    try:
-        res_id = report._get_res_id_from_line_id(line_dict_id, model_name)
-    except Exception:
-        _logger.exception(
-            'qader_steel_suite: تعذّر تحليل معرّف السطر %r', line_dict_id,
-        )
-        return None
+    if not lines:
+        return lines
 
-    if res_id is None:
-        return None
-
-    try:
-        return int(res_id)
-    except (TypeError, ValueError):
-        _logger.warning(
-            'qader_steel_suite: تعذّر تحويل معرّف %s إلى رقم: %r',
-            model_name, res_id,
-        )
-        return None
-
-
-def append_currency_total_lines(
-    report, options, result, line_dict_id, sums_by_group, groupby_id,
-):
-    """يضيف صف إجمالي واحدًا لكل عملة إلى نتيجة توسيع سطر.
-
-    ``sums_by_group`` بالشكل ``{column_group_key: {groupby_id: {cur: amt}}}``.
-    يُبنى صف واحد لكل عملة، وتُملأ خانته في كل مجموعة أعمدة من سلّتها.
-    """
-    env = report.env
-
-    # بلا عمود Amount Currency لا مكان لعرض أي رقم — نُسجّل السبب بوضوح
-    # بدل أن تبدو الميزة معطّلة بلا تفسير.
     if not has_amount_currency_column(options):
         _logger.warning(
-            'qader_steel_suite: عمود Amount Currency غير موجود في هذا '
-            'التقرير، فلن تظهر إجماليات العملات. السبب المعتاد: المستخدم '
-            'ليس ضمن مجموعة "العملات المتعددة" (base.group_multi_currency)، '
-            'فيحذف أودو العمود تلقائيًا. فعّل "العملات المتعددة" من '
-            'الإعدادات ▸ المحاسبة.'
+            'QSS ⛔ عمود Amount Currency غير موجود — لن تظهر إجماليات العملات. '
+            'السبب المعتاد: المستخدم ليس ضمن مجموعة "العملات المتعددة" '
+            '(base.group_multi_currency)، فيحذف أودو العمود تلقائيًا. '
+            'فعّلها من الإعدادات ▸ المحاسبة.'
         )
-        return
+        return lines
 
-    # كل العملات التي ظهرت لهذا الشريك/الحساب في أي مجموعة أعمدة.
-    currency_ids = set()
-    for group_data in sums_by_group.values():
-        currency_ids |= set(group_data.get(groupby_id, {}))
+    # ── تصنيف السطور حسب الحساب/الشريك ──────────────────────────────
+    res_ids, has_child, has_load_more, last_index = [], {}, set(), {}
 
-    if not currency_ids:
-        return
-
-    existing = result.get('lines') or []
-    # نرث مستوى آخر سطر فعلي بدل تخمين رقم ثابت، حتى يظهر صف الإجمالي
-    # كابن للسطر المفتوح لا كقسم شقيق.
-    level = existing[-1].get('level', 3) if existing else 3
-
-    for currency in sort_currencies(env, currency_ids):
-        amounts = [
-            group_data.get(groupby_id, {}).get(currency.id, 0.0)
-            for group_data in sums_by_group.values()
-        ]
-        # صفر حقيقي في كل المجموعات لا يستحق صفًا. نستخدم is_zero بدل
-        # ``not amount`` حتى لا يُعرض بقايا تقريب مثل 1e-13 كصف "0.00".
-        if all(currency.is_zero(a) for a in amounts):
+    for idx, line in enumerate(lines):
+        rid = None
+        try:
+            rid = report._get_res_id_from_line_id(line.get('id'), model_name)
+        except Exception:
+            pass
+        if not rid:
             continue
 
-        result.setdefault('lines', []).append({
-            'id': report._get_generic_line_id(
-                None, None,
-                parent_line_id=line_dict_id,
-                markup='currency_total_%s' % currency.id,
-            ),
-            'parent_id': line_dict_id,
-            'name': _('%s Total') % currency.name,
-            'level': level,
-            'columns': build_currency_total_columns(
-                report, options, currency, sums_by_group, groupby_id,
-            ),
-            'class': 'o_account_report_total custom-currency-total',
-        })
+        rid = int(rid)
+        if rid not in res_ids:
+            res_ids.append(rid)
+        last_index[rid] = idx
+
+        parsed = report._parse_line_id(line.get('id')) or []
+        markup, model, _res = parsed[-1] if parsed else (None, None, None)
+
+        if markup == 'load_more':
+            has_load_more.add(rid)
+        elif model != model_name:
+            # ليس سطر العنوان ⇒ ابن حقيقي
+            has_child[rid] = idx
+
+    targets = [r for r in res_ids if r in has_child and r not in has_load_more]
+    if not targets:
+        _logger.info(
+            'QSS ⏭ لا توجد مجموعات مفتوحة لإضافة إجماليات (%s مجموعة مفحوصة).',
+            len(res_ids),
+        )
+        return lines
+
+    sums = compute_currency_sums(report, options, groupby_sql, groupby_ids=targets)
+    _logger.info(
+        'QSS 🔢 %s=%s | مجاميع العملات=%r',
+        model_name, targets,
+        {gk: {k: v for k, v in g.items() if k in targets} for gk, g in sums.items()},
+    )
+
+    # ── بناء صفوف الإجمالي وإدراجها ─────────────────────────────────
+    to_insert = {}
+    for rid in targets:
+        currency_ids = set()
+        for group_data in sums.values():
+            currency_ids |= set(group_data.get(rid, {}))
+        if not currency_ids:
+            continue
+
+        anchor = lines[last_index[rid]]
+        parsed_anchor = report._parse_line_id(anchor['id']) or []
+        anchor_model = parsed_anchor[-1][1] if parsed_anchor else None
+        # العنوان هو السطر نفسه إن كان سطر الحساب، وإلا أبوه.
+        parent_id = (anchor['id'] if anchor_model == model_name
+                     else report._build_parent_line_id(parsed_anchor))
+        level = anchor.get('level', 3)
+
+        rows = []
+        for currency in sort_currencies(report.env, currency_ids):
+            amounts = [g.get(rid, {}).get(currency.id, 0.0) for g in sums.values()]
+            # صفر حقيقي في كل المجموعات لا يستحق صفًا. ``is_zero`` بدل
+            # ``not amount`` حتى لا تُعرض بقايا تقريب مثل 1e-13 كصف "0.00".
+            if all(currency.is_zero(a) for a in amounts):
+                continue
+            rows.append({
+                'id': report._get_generic_line_id(
+                    None, None, parent_line_id=parent_id,
+                    markup='qss_currency_total_%s' % currency.id,
+                ),
+                'parent_id': parent_id,
+                'name': _('%s Total') % currency.name,
+                'level': level,
+                'columns': build_currency_total_columns(
+                    report, options, currency, sums, rid,
+                ),
+                'unfoldable': False,
+                'unfolded': False,
+                'class': 'o_account_report_total qss-currency-total',
+            })
+
+        if rows:
+            to_insert[last_index[rid]] = rows
+
+    if not to_insert:
+        _logger.info('QSS ⏭ كل المجاميع أصفار — لم يُضف أي صف.')
+        return lines
+
+    out = []
+    for idx, line in enumerate(lines):
+        out.append(line)
+        out.extend(to_insert.get(idx, ()))
+
+    _logger.info(
+        'QSS ✅ أُضيف %s صف إجمالي عملة على %s مجموعة.',
+        sum(len(v) for v in to_insert.values()), len(to_insert),
+    )
+    return out

@@ -1,28 +1,35 @@
 # -*- coding: utf-8 -*-
 """دفتر الشركاء (Partner Ledger) — عرض كل سطر بعملته + إجمالي لكل عملة.
 
-ما الذي يفعله هذا الملف
------------------------
 1. **تعبئة عمود Amount Currency** لكل سطر، بما فيها سطور عملة الشركة التي
-   يتركها أودو فارغة (القيمة موجودة في ``balance``).
-2. **إضافة صف إجمالي لكل عملة تحت كل شريك** — "IQD Total" و "USD Total" —
-   فيرى المحاسب إجمالي الدينار وحده وإجمالي الدولار وحده لنفس الزبون.
+   يُفرغها أودو عمدًا.
+2. **صف إجمالي لكل عملة في نهاية سطور كل شريك** — فيرى المحاسب إجمالي
+   الدولار وحده وإجمالي الدينار وحده لنفس الزبون.
 
-إصلاح (19.0.1.3.0) — لماذا كان إجمالي الدينار مفقودًا
-------------------------------------------------------
-الاستعلام السابق كان ``COALESCE(SUM(amount_currency), 0.0)``، وهذا يعطي
-**صفرًا** لكل سطور عملة الشركة لأن أودو يترك ``amount_currency = 0`` عندما
-تكون عملة المستند هي عملة الشركة (القيمة في ``balance``). ثم كان الكود
-يتخطى أي مجموع صفري، فيختفي صف "IQD Total" ولا يظهر إلا "USD Total".
+يغطّي أيضًا **تقرير كشف حساب العميل**: معالجه
+``account.customer.statement.report.handler`` يرث معالج دفتر الشركاء، فيأخذ
+الإصلاح نفسه تلقائيًا بلا كود إضافي.
 
-الشرح الكامل وبقية المزالق (المقارنة، فروقات الصرف) في ترويسة
-``account_report_currency_utils``.
+الإصلاح المحاسبي الأصلي
+------------------------
+كان الاستعلام يجمع ``amount_currency`` مباشرة، وهذا يعطي **صفرًا** لكل
+سطور عملة الشركة (أودو يترك الحقل صفرًا والقيمة في ``balance``). ثم يتخطى
+الكود أي مجموع صفري، فيختفي صف إجمالي عملة الشركة ولا يظهر إلا صف العملة
+الأجنبية. الشرح الكامل في ترويسة ``account_report_currency_utils``.
+
+لماذا ``_custom_line_postprocessor`` وحده؟
+-------------------------------------------
+النسخ السابقة أعادت تعريف ``_get_report_line_move_line`` و
+``_report_expand_unfoldable_line_partner_ledger``. أثبت التشخيص على أودو 19
+أن نظائرها في دفتر الأستاذ العام **حُذفت** في هذا الإصدار، فكانت الشفرة
+ميتة بلا أي إشارة. لتفادي تكرار ذلك هنا، تعتمد هذه النسخة على الخطاف
+الموثَّق ``_custom_line_postprocessor`` المعرَّف على
+``account.report.custom.handler`` نفسه — فهو موجود على كل معالج تقرير،
+ويُستدعى في مساري العرض الكامل وفتح السطر الواحد معًا.
 
 مبدأ السلامة
 ------------
-كل إضافة هنا **عرضية فقط**: لا تُنشئ أعمدة ولا تغيّر أرقام مدين/دائن/رصيد.
-واستدعاء ``super()`` نفسه ملفوف بـ try/except أيضًا — لأن الخطر الحقيقي ليس
-في كودنا بل في تغيّر توقيع الدالة في Enterprise بين الإصدارات.
+إضافة **عرضية فقط**: لا أعمدة جديدة، ولا مساس بأرقام مدين/دائن/رصيد.
 """
 
 import logging
@@ -40,114 +47,38 @@ PARTNER_GROUPBY = SQL('account_move_line.partner_id')
 class PartnerLedgerCurrencyHandler(models.AbstractModel):
     _inherit = 'account.partner.ledger.report.handler'
 
-    # ------------------------------------------------------------------
-    # 1) تعبئة خانة Amount Currency لكل سطر
-    # ------------------------------------------------------------------
-
-    def _get_report_line_move_line(self, options, aml_query_result, *args, **kwargs):
-        """بنّاء سطر بند القيد في دفتر الشركاء.
-
-        توقيعه الفعلي في Enterprise::
-
-            _get_report_line_move_line(self, options, aml_query_result,
-                                       partner_line_id, init_bal_by_col_group,
-                                       level_shift=0)
-
-        نُبقي الذيل ``*args/**kwargs`` تحسّبًا لتغيّره بين الإصدارات.
-
-        ملاحظة: هذا المعالج موروث أيضًا في **تقرير كشف حساب العميل**
-        (``account.customer.statement.report.handler`` يرث معالج دفتر
-        الشركاء)، فيستفيد التقريران من الإصلاح نفسه تلقائيًا.
-
-        أودو يُفرغ الخانة عمدًا لسطور عملة الشركة::
-
-            if currency == self.env.company.currency_id:
-                col_value = ''
-
-        ونحن نعيد ملأها من ``balance``.
-        """
-        line = super()._get_report_line_move_line(
-            options, aml_query_result, *args, **kwargs
-        )
+    def _custom_line_postprocessor(self, report, options, lines):
+        lines = super()._custom_line_postprocessor(report, options, lines)
 
         try:
-            report = self.env['account.report'].browse(options['report_id'])
-            # صف واحد هنا (لا قاموس لكل مجموعة أعمدة)، فنغلّفه بمفتاح مجموعته.
-            cur_utils.patch_amount_currency_cells(
-                report, options, line,
-                {aml_query_result.get('column_group_key'): aml_query_result},
-            )
-        except Exception:
-            # تحسين عرضي فقط — لا يجوز أن يكسر تقريرًا محاسبيًا.
-            _logger.exception(
-                'qader_steel_suite: تعذّر تعبئة خانة العملة في دفتر الشركاء'
+            _logger.info(
+                'QSS [PL] ▶ postprocessor: %s سطر | report_id=%s | '
+                'عمود العملة=%s',
+                len(lines), options.get('report_id'),
+                cur_utils.has_amount_currency_column(options),
             )
 
-        return line
+            cur_utils.fill_amount_currency_cells(report, options, lines)
 
-    # ------------------------------------------------------------------
-    # 2) صف إجمالي لكل عملة تحت كل شريك
-    # ------------------------------------------------------------------
-
-    def _report_expand_unfoldable_line_partner_ledger(
-        self, line_dict_id, groupby, options, progress, offset, *args, **kwargs
-    ):
-        result = super()._report_expand_unfoldable_line_partner_ledger(
-            line_dict_id, groupby, options, progress, offset, *args, **kwargs
-        )
-
-        try:
-            # (أ) توسيع فرعي (الشريك مقسَّمًا حسب شهر/حساب ...): إجمالي
-            #     الشريك كاملًا لا يخصّ المجموعة الفرعية، وعرضه تحتها رقم
-            #     مضلِّل. نتركها بلا إجماليات.
-            if groupby:
-                return result
-
-            # (ب) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
-            #     الشريك، وإلا تكرّر الصف مع كل صفحة "تحميل المزيد".
-            if result.get('has_more'):
-                return result
-
-            report = self.env['account.report'].browse(options['report_id'])
-
-            # (ج) سطر "شريك غير معروف" يحمل markup='no_partner' بلا معرّف،
-            #     فيرجع None هنا ونتخطّاه بهدوء.
-            partner_id = cur_utils.extract_line_id_value(
-                report, line_dict_id, 'res.partner',
-            )
-            if not partner_id:
-                return result
-
-            # savepoint: يبقي معاملة أودو الخارجية سليمة حتى لو رفض
-            # PostgreSQL استعلام التجميع على إصدار Enterprise مستقبلي.
-            # groupby_ids: قصر الاستعلام على هذا الشريك وحده (الأداء).
             with self.env.cr.savepoint():
-                sums = cur_utils.compute_currency_sums(
-                    report, options, PARTNER_GROUPBY, groupby_ids=[partner_id],
+                lines = cur_utils.inject_currency_totals(
+                    report, options, lines, 'res.partner', PARTNER_GROUPBY,
                 )
-
-            cur_utils.append_currency_total_lines(
-                report, options, result, line_dict_id, sums, partner_id,
-            )
-
         except Exception:
             _logger.exception(
-                'qader_steel_suite: تعذّر إضافة إجماليات العملات في دفتر الشركاء'
+                'qader_steel_suite: تعذّرت معالجة عملات دفتر الشركاء'
             )
 
-        return result
+        return lines
 
 
 class AccountReportCurrencyTotals(models.Model):
     """واجهة رفيعة تُبقي الميثودات القديمة متاحة لأي كود خارجي.
 
-    كان المنطق معرَّفًا هنا في النسخ السابقة؛ صار في
-    ``account_report_currency_utils`` ليتشاركه دفتر الشركاء ودفتر الأستاذ.
-
-    ⚠ تغيّر شكل القيمة المُعادة في 19.0.1.3.0: صارت
-    ``{column_group_key: {id: {currency_id: amount}}}`` بدل
-    ``{id: {currency_id: amount}}`` — لأن الشكل القديم كان يدمج مجموعات
-    الأعمدة (فترات المقارنة) في سلة واحدة وينتج رقمًا خاطئًا.
+    ⚠ شكل القيمة المُعادة صار
+    ``{column_group_key: {id: {currency_id: amount}}}`` — لأن الشكل القديم
+    كان يدمج مجموعات الأعمدة (فترات المقارنة) في سلة واحدة وينتج رقمًا
+    خاطئًا لا وجود له في الدفتر.
     """
     _inherit = 'account.report'
 
