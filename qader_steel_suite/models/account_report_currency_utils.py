@@ -39,8 +39,8 @@
 
 import logging
 
+from odoo import _
 from odoo.tools import SQL
-from odoo.tools.misc import formatLang
 
 _logger = logging.getLogger(__name__)
 
@@ -187,12 +187,34 @@ def compute_currency_sums(report, options, groupby_sql: SQL, groupby_ids=None):
 def looks_like_aml_row(row):
     """هل يشبه هذا الصف نتيجة استعلام بند قيد؟
 
-    حارس ضد تغيّر توقيع Enterprise: لو صار الوسيط الثاني شيئًا آخر (قاموسًا
-    مختلفًا مثلًا) نفضّل الانسحاب بصمت على قراءة ``id`` من قاموس غريب وطباعة
-    مبلغ لا علاقة له بالسطر — وهو خطأ صامت لا يرفع استثناءً ولا يُسجَّل.
+    حارس ضد تغيّر توقيع Enterprise: لو صار الوسيط شيئًا آخر (قاموسًا مختلفًا
+    مثلًا) نفضّل الانسحاب بصمت على قراءة ``id`` من قاموس غريب وطباعة مبلغ لا
+    علاقة له بالسطر — وهو خطأ صامت لا يرفع استثناءً ولا يُسجَّل.
     """
     return isinstance(row, dict) and (
         'currency_id' in row or 'amount_currency' in row or 'balance' in row
+    )
+
+
+def has_amount_currency_column(options):
+    """هل يعرض التقرير عمود Amount Currency أصلًا؟
+
+    مهم جدًا للتشخيص: كلا التقريرين يحذفان العمود نهائيًا من
+    ``options['columns']`` داخل ``_custom_options_initializer`` عندما لا يكون
+    المستخدم ضمن مجموعة ``base.group_multi_currency``::
+
+        if self.env.user.has_group('base.group_multi_currency'):
+            options['multi_currency'] = True
+        else:
+            options['columns'] = [c for c in options['columns']
+                                  if c['expression_label'] != 'amount_currency']
+
+    وبدون هذا العمود لا يوجد مكان تُعرض فيه المبالغ ولا الإجماليات، فتبدو
+    الميزة وكأنها لا تعمل. الحل: تفعيل "العملات المتعددة" من الإعدادات.
+    """
+    return any(
+        col.get('expression_label') == 'amount_currency'
+        for col in options.get('columns', [])
     )
 
 
@@ -264,41 +286,50 @@ def resolve_line_currency(env, row):
     return currency, amount
 
 
-def patch_amount_currency_cell(env, options, line, row):
-    """يملأ خانة Amount Currency القياسية دون تغيير مخطط التقرير.
+def patch_amount_currency_cells(report, options, line, results_by_group):
+    """يملأ خانات Amount Currency القياسية دون تغيير مخطط التقرير.
 
-    ⚠ يجب مطابقة ``column_group_key``: عند تفعيل المقارنة يحتوي
-    ``options['columns']`` على خانة ``amount_currency`` **لكل مجموعة
-    أعمدة**. النسخة الأولى كانت تكتب مبلغ السطر في كل تلك الخانات، فيظهر
-    مبلغ يناير أيضًا تحت عمود ديسمبر — أي إفساد لعمود قياسي في أودو،
-    وليس مجرد إضافة عرضية.
+    ``results_by_group`` بالشكل ``{column_group_key: aml_query_result}``:
+      * دفتر الأستاذ العام يمرّر ``eval_dict`` وهو بهذا الشكل أصلًا؛
+      * دفتر الشركاء يمرّر صفًا واحدًا، فيُغلَّف بمفتاح مجموعته.
+
+    لماذا مطابقة ``column_group_key``؟ عند تفعيل المقارنة يحتوي
+    ``options['columns']`` على خانة ``amount_currency`` **لكل مجموعة أعمدة**.
+    الكتابة في كلها تجعل مبلغ يناير يظهر أيضًا تحت عمود ديسمبر — إفسادٌ
+    لعمود قياسي في أودو، لا مجرد إضافة عرضية.
+
+    ما الذي نغيّره أصلًا؟ أودو يُفرغ الخانة عمدًا لسطور عملة الشركة::
+
+        if col_expr_label == 'amount_currency':
+            col_currency = ...browse(eval_dict[...]['currency_id'])
+            col_value = None if col_currency == self.env.company.currency_id else col_value
+
+    نحن نعيد ملأها من ``balance``، فتُقرأ كل الأسطر بنفس الطريقة.
     """
-    if not looks_like_aml_row(row):
-        return
-
     cells = line.get('columns') or []
     option_columns = options.get('columns') or []
 
     if not cells or len(cells) != len(option_columns):
         return
 
-    row_group_key = row.get('column_group_key')
-
-    currency, amount = resolve_line_currency(env, row)
-    if not currency or amount is None:
-        return
-
     for index, column in enumerate(option_columns):
         if column.get('expression_label') != 'amount_currency':
             continue
-        # لا نلمس إلا خانة مجموعة الأعمدة التي ينتمي إليها هذا السطر.
-        if row_group_key and column.get('column_group_key') != row_group_key:
+
+        row = results_by_group.get(column.get('column_group_key'))
+        if not looks_like_aml_row(row):
             continue
 
-        cell = cells[index]
-        cell['no_format'] = amount
-        # formatLang يعرض رمز العملة بنفسه — لا نضيف اسم العملة مرة ثانية.
-        cell['name'] = formatLang(env, amount, currency_obj=currency)
+        currency, amount = resolve_line_currency(report.env, row)
+        if not currency or amount is None:
+            continue
+
+        # نستخدم بنّاء الخانات القياسي في أودو بدل بناء القاموس يدويًا،
+        # حتى تحمل الخانة كل المفاتيح التي تعتمد عليها الواجهة وتصدير
+        # XLSX (is_zero، format_params، column_group_key ...).
+        cells[index] = report._build_column_dict(
+            amount, column, options=options, currency=currency,
+        )
 
 
 # ======================================================================
@@ -314,36 +345,25 @@ def sort_currencies(env, currency_ids):
     )
 
 
-def build_currency_total_columns(env, options, currency, sums_by_group, groupby_id):
+def build_currency_total_columns(report, options, currency, sums_by_group, groupby_id):
     """يبني خانات صف إجمالي عملة واحدة، خانةً خانة حسب مجموعة الأعمدة."""
     columns = []
 
     for col in options.get('columns', []):
-        expression_label = col.get('expression_label')
-
-        if expression_label != 'amount_currency':
-            columns.append({
-                'name': '',
-                'no_format': None,
-                'expression_label': expression_label,
-                'figure_type': 'string',
-            })
+        if col.get('expression_label') != 'amount_currency':
+            # ``_build_column_dict(None, None)`` يعيد {} وهي الخانة الفارغة
+            # القياسية في أودو — نفس ما تفعله تقارير Enterprise نفسها.
+            columns.append(report._build_column_dict(None, None))
             continue
 
-        group_key = col.get('column_group_key')
         amount = (
-            sums_by_group.get(group_key, {})
+            sums_by_group.get(col.get('column_group_key'), {})
             .get(groupby_id, {})
             .get(currency.id, 0.0)
         )
-
-        columns.append({
-            'name': formatLang(env, amount, currency_obj=currency),
-            'no_format': amount,
-            'expression_label': 'amount_currency',
-            'figure_type': 'monetary',
-            'class': 'number',
-        })
+        columns.append(report._build_column_dict(
+            amount, col, options=options, currency=currency,
+        ))
 
     return columns
 
@@ -351,38 +371,53 @@ def build_currency_total_columns(env, options, currency, sums_by_group, groupby_
 def extract_line_id_value(report, line_dict_id, model_name):
     """يستخرج معرّف السجل الخاص بـ ``model_name`` من معرّف سطر التقرير.
 
-    يبحث بالاسم لا بموضع ثابت، لأن Enterprise قد يضيف مستويات تجميع بين
-    الإصدارات. يُرجع ``int`` دائمًا: مفاتيح نتائج SQL أعداد صحيحة، ولو عاد
-    المعرّف نصًّا لفشل البحث في القاموس بصمت ولاختفت الميزة كلها دون أي
-    استثناء أو سطر في اللوق.
+    يستخدم ``_get_res_id_from_line_id`` القياسي في أودو، وهو يبحث عن أعمق
+    ظهور للنموذج المطلوب (الأقصى يمينًا) بدل الاعتماد على موضع ثابت — فيصمد
+    أمام إضافة Enterprise لمستويات تجميع بينية (مجموعات البادئات مثلًا).
     """
-    parsed = report._parse_line_id(line_dict_id)
-    if not parsed:
+    try:
+        res_id = report._get_res_id_from_line_id(line_dict_id, model_name)
+    except Exception:
+        _logger.exception(
+            'qader_steel_suite: تعذّر تحليل معرّف السطر %r', line_dict_id,
+        )
         return None
 
-    for entry in reversed(parsed):
-        # كل عنصر بالشكل (markup, model, value)
-        if len(entry) >= 3 and entry[1] == model_name:
-            try:
-                return int(entry[2])
-            except (TypeError, ValueError):
-                _logger.warning(
-                    'qader_steel_suite: تعذّر تحويل معرّف %s إلى رقم: %r',
-                    model_name, entry[2],
-                )
-                return None
+    if res_id is None:
+        return None
 
-    return None
+    try:
+        return int(res_id)
+    except (TypeError, ValueError):
+        _logger.warning(
+            'qader_steel_suite: تعذّر تحويل معرّف %s إلى رقم: %r',
+            model_name, res_id,
+        )
+        return None
 
 
 def append_currency_total_lines(
-    env, report, options, result, line_dict_id, sums_by_group, groupby_id,
+    report, options, result, line_dict_id, sums_by_group, groupby_id,
 ):
     """يضيف صف إجمالي واحدًا لكل عملة إلى نتيجة توسيع سطر.
 
     ``sums_by_group`` بالشكل ``{column_group_key: {groupby_id: {cur: amt}}}``.
     يُبنى صف واحد لكل عملة، وتُملأ خانته في كل مجموعة أعمدة من سلّتها.
     """
+    env = report.env
+
+    # بلا عمود Amount Currency لا مكان لعرض أي رقم — نُسجّل السبب بوضوح
+    # بدل أن تبدو الميزة معطّلة بلا تفسير.
+    if not has_amount_currency_column(options):
+        _logger.warning(
+            'qader_steel_suite: عمود Amount Currency غير موجود في هذا '
+            'التقرير، فلن تظهر إجماليات العملات. السبب المعتاد: المستخدم '
+            'ليس ضمن مجموعة "العملات المتعددة" (base.group_multi_currency)، '
+            'فيحذف أودو العمود تلقائيًا. فعّل "العملات المتعددة" من '
+            'الإعدادات ▸ المحاسبة.'
+        )
+        return
+
     # كل العملات التي ظهرت لهذا الشريك/الحساب في أي مجموعة أعمدة.
     currency_ids = set()
     for group_data in sums_by_group.values():
@@ -413,10 +448,10 @@ def append_currency_total_lines(
                 markup='currency_total_%s' % currency.id,
             ),
             'parent_id': line_dict_id,
-            'name': env._('%(currency)s Total', currency=currency.name),
+            'name': _('%s Total') % currency.name,
             'level': level,
             'columns': build_currency_total_columns(
-                env, options, currency, sums_by_group, groupby_id,
+                report, options, currency, sums_by_group, groupby_id,
             ),
             'class': 'o_account_report_total custom-currency-total',
         })

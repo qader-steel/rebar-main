@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Qader Steel Suite - Sales, Purchase, Delivery & Accounting",
-    "version": "19.0.1.3.0",
+    "version": "19.0.1.3.1",
     "category": "Sales",
     "summary": "All-in-one operations suite: bundle/weight calculator, driver & "
                "transportation info, multi-currency partner ledger and "

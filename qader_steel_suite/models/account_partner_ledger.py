@@ -45,16 +45,37 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
     # ------------------------------------------------------------------
 
     def _get_report_line_move_line(self, options, aml_query_result, *args, **kwargs):
-        """التوقيع مرن عمدًا (*args/**kwargs): توقيع هذه الدالة في Enterprise
-        تغيّر بين الإصدارات (إضافة currency_table، level_shift ...). تمرير
-        كل شيء كما هو إلى super يجعل الامتداد صامدًا أمام تلك التغييرات."""
+        """بنّاء سطر بند القيد في دفتر الشركاء.
+
+        توقيعه الفعلي في Enterprise::
+
+            _get_report_line_move_line(self, options, aml_query_result,
+                                       partner_line_id, init_bal_by_col_group,
+                                       level_shift=0)
+
+        نُبقي الذيل ``*args/**kwargs`` تحسّبًا لتغيّره بين الإصدارات.
+
+        ملاحظة: هذا المعالج موروث أيضًا في **تقرير كشف حساب العميل**
+        (``account.customer.statement.report.handler`` يرث معالج دفتر
+        الشركاء)، فيستفيد التقريران من الإصلاح نفسه تلقائيًا.
+
+        أودو يُفرغ الخانة عمدًا لسطور عملة الشركة::
+
+            if currency == self.env.company.currency_id:
+                col_value = ''
+
+        ونحن نعيد ملأها من ``balance``.
+        """
         line = super()._get_report_line_move_line(
             options, aml_query_result, *args, **kwargs
         )
 
         try:
-            cur_utils.patch_amount_currency_cell(
-                self.env, options, line, aml_query_result,
+            report = self.env['account.report'].browse(options['report_id'])
+            # صف واحد هنا (لا قاموس لكل مجموعة أعمدة)، فنغلّفه بمفتاح مجموعته.
+            cur_utils.patch_amount_currency_cells(
+                report, options, line,
+                {aml_query_result.get('column_group_key'): aml_query_result},
             )
         except Exception:
             # تحسين عرضي فقط — لا يجوز أن يكسر تقريرًا محاسبيًا.
@@ -83,12 +104,14 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
                 return result
 
             # (ب) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
-            #     الشريك، وإلا تكرّر الصف مع كل صفحة.
+            #     الشريك، وإلا تكرّر الصف مع كل صفحة "تحميل المزيد".
             if result.get('has_more'):
                 return result
 
             report = self.env['account.report'].browse(options['report_id'])
 
+            # (ج) سطر "شريك غير معروف" يحمل markup='no_partner' بلا معرّف،
+            #     فيرجع None هنا ونتخطّاه بهدوء.
             partner_id = cur_utils.extract_line_id_value(
                 report, line_dict_id, 'res.partner',
             )
@@ -104,7 +127,7 @@ class PartnerLedgerCurrencyHandler(models.AbstractModel):
                 )
 
             cur_utils.append_currency_total_lines(
-                self.env, report, options, result, line_dict_id, sums, partner_id,
+                report, options, result, line_dict_id, sums, partner_id,
             )
 
         except Exception:

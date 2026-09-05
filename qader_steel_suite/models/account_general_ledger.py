@@ -1,44 +1,49 @@
 # -*- coding: utf-8 -*-
 """دفتر الأستاذ العام (General Ledger) — عرض كل سطر بعملته + إجمالي لكل عملة.
 
-نفس منطق دفتر الشركاء بالضبط، لكن التجميع **حسب الحساب** بدل الشريك:
-
-1. **تعبئة عمود Amount Currency** لكل بند قيد، بما فيها سطور عملة الشركة
-   التي يتركها أودو فارغة (القيمة في ``balance``).
+1. **تعبئة عمود Amount Currency** لكل بند قيد، بما فيها سطور عملة الشركة.
 2. **صف إجمالي لكل عملة تحت كل حساب** — عند فتح أي حساب يظهر في نهايته
    "IQD Total" و "USD Total"، فيرى المحاسب رصيد الحساب مفصولًا بالعملة.
+
+⚠ تصحيح مهم (النسخة الأولى لم تكن تعمل إطلاقًا)
+------------------------------------------------
+كانت النسخة الأولى تعيد تعريف ``_get_report_line_move_line``. هذه الميثود
+**غير موجودة على معالج دفتر الأستاذ العام** — إنها تخصّ *دفتر الشركاء* وحده.
+دفتر الأستاذ يبني سطوره عبر::
+
+    def _get_aml_line(self, report, parent_line_id, options, eval_dict,
+                      init_bal_by_col_group)
+
+فكان الكود السابق **شفرة ميتة**: لا يُستدعى أبدًا، ولا يرفع استثناءً، ولا
+يكتب سطرًا في اللوق — ولذلك لم يظهر أي شيء في التقرير. صُحّح هنا باعتماد
+الاسم الصحيح، بعد مطابقته على مصدر ``account_reports`` الفعلي.
+
+لماذا قد لا تظهر الإجماليات رغم ذلك؟ (سبب شائع جدًا)
+-----------------------------------------------------
+``_custom_options_initializer`` في دفتر الأستاذ العام يحذف العمود بالكامل::
+
+    if self.env.user.has_group('base.group_multi_currency'):
+        options['multi_currency'] = True
+    else:
+        options['columns'] = [column for column in options['columns']
+                              if column['expression_label'] != 'amount_currency']
+
+فإن لم يكن المستخدم ضمن مجموعة **"العملات المتعددة"** فلا وجود لعمود
+Amount Currency أصلًا، ولا مكان لعرض المبالغ ولا الإجماليات. الحل: تفعيل
+"العملات المتعددة" من الإعدادات ▸ المحاسبة. الكود يكتب تحذيرًا صريحًا في
+اللوق عند حدوث ذلك بدل أن يبدو معطّلًا بلا سبب.
 
 لماذا "تحت كل حساب" وليس إجمالي عام أسفل التقرير؟
 --------------------------------------------------
 قرار محاسبي مقصود. الإجمالي العام لكل العملات عبر **كل** الحسابات ليس رقمًا
 ذا معنى: جمع الذمم المدينة + الذمم الدائنة + الإيرادات + المصاريف بالدولار
-لا يمثّل شيئًا يمكن للمحاسب استخدامه أو تدقيقه. الرقم المفيد والقابل
-للمطابقة هو **رصيد كل حساب بكل عملة**، وهو ما يظهر هنا — تمامًا كما يظهر
-رصيد كل شريك بكل عملة في دفتر الشركاء.
-
-إن طُلب لاحقًا إجمالي عام أسفل التقرير، يُضاف عبر
-``_dynamic_lines_generator`` — لكنه لم يُضَف الآن تجنّبًا لرقم مضلِّل.
-
-⚠ تحذير تنفيذي — يجب التحقق بعد الترقية
-----------------------------------------
-``account.general.ledger.report.handler`` نموذج من Odoo **Enterprise**، ولم
-يكن متاحًا للفحص أثناء كتابة هذا الملف. تحديدًا **اسما الميثودين
-المُعاد تعريفهما أدناه غير مؤكَّدين** مقابل مصدر Enterprise:
-
-    _get_report_line_move_line
-    _report_expand_unfoldable_line_general_ledger
-
-إن كان أيٌّ منهما باسم مختلف في نسختكم، فلن يُستدعى الكود إطلاقًا وستكون
-الميزة **صامتة تمامًا** — لا خطأ ولا سطر في اللوق ولا صفوف إجمالي. لذلك:
-**افتح دفتر الأستاذ العام مرة واحدة بعد الترقية، افتح أي حساب، وتأكد من
-ظهور صفوف "IQD Total" / "USD Total"** قبل الاعتماد عليه. إن لم تظهر، أرسل
-لي اسمي الميثودين من مصدر Enterprise عندكم وأصحّحهما فورًا.
+لا يمثّل شيئًا يمكن تدقيقه. الرقم المفيد هو **رصيد كل حساب بكل عملة**.
 
 مبدأ السلامة
 ------------
 كل إضافة **عرضية فقط**: لا أعمدة جديدة، ولا مساس بأرقام مدين/دائن/رصيد. كل
-خطاف ملفوف بـ try/except (بما فيه استدعاء ``super()`` نفسه)، والاستعلام
-داخل savepoint ومقصور على الحساب المفتوح وحده.
+خطاف ملفوف بـ try/except، والاستعلام داخل savepoint ومقصور على الحساب
+المفتوح وحده.
 """
 
 import logging
@@ -60,18 +65,24 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
     # 1) تعبئة خانة Amount Currency لكل سطر
     # ------------------------------------------------------------------
 
-    def _get_report_line_move_line(self, options, aml_query_result, *args, **kwargs):
-        """التوقيع مرن عمدًا: هذه الدالة يختلف توقيعها بين دفتر الأستاذ
-        ودفتر الشركاء وبين الإصدارات (currency_table، level_shift ...).
-        نمرّر كل شيء كما هو إلى super."""
-        line = super()._get_report_line_move_line(
-            options, aml_query_result, *args, **kwargs
+    def _get_aml_line(self, report, parent_line_id, options, eval_dict, *args, **kwargs):
+        """الاسم الصحيح لبنّاء سطر بند القيد في دفتر الأستاذ العام.
+
+        ``eval_dict`` بالشكل ``{column_group_key: aml_query_result}`` — وهو
+        تمامًا ما تحتاجه دالة التعبئة، فيُمرَّر كما هو.
+
+        أودو يُفرغ الخانة عمدًا لسطور عملة الشركة::
+
+            col_value = None if col_currency == self.env.company.currency_id else col_value
+
+        ونحن نعيد ملأها من ``balance``.
+        """
+        line = super()._get_aml_line(
+            report, parent_line_id, options, eval_dict, *args, **kwargs
         )
 
         try:
-            cur_utils.patch_amount_currency_cell(
-                self.env, options, line, aml_query_result,
-            )
+            cur_utils.patch_amount_currency_cells(report, options, line, eval_dict)
         except Exception:
             _logger.exception(
                 'qader_steel_suite: تعذّر تعبئة خانة العملة في دفتر الأستاذ العام'
@@ -91,19 +102,21 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
         )
 
         try:
-            # (أ) توسيع فرعي (الحساب مقسَّمًا حسب شريك/شهر ...): إجمالي
-            #     الحساب كاملًا لا يخصّ المجموعة الفرعية. مثال الخطأ الذي
-            #     نتجنّبه: "١٢١٠٠٠ ذمم مدينة › الشريك أ" يعرض "USD Total
-            #     50,000" بينما نصيب الشريك أ هو ٤٠٠ فقط.
-            if groupby:
-                return result
-
-            # (ب) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
-            #     الحساب، وإلا تكرّر الصف مع كل صفحة.
+            # (أ) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
+            #     الحساب، وإلا تكرّر الصف مع كل صفحة "تحميل المزيد".
             if result.get('has_more'):
                 return result
 
             report = self.env['account.report'].browse(options['report_id'])
+
+            # (ب) هذا المعالج موروث أيضًا في تقارير أخرى (ميزان المراجعة
+            #     يرث معالج دفتر الأستاذ). إجماليات العملات مطلوبة في دفتر
+            #     الأستاذ العام وحده، فلا نتدخّل في غيره.
+            gl_report = self.env.ref(
+                'account_reports.general_ledger_report', raise_if_not_found=False,
+            )
+            if not gl_report or report.id != gl_report.id:
+                return result
 
             account_id = cur_utils.extract_line_id_value(
                 report, line_dict_id, 'account.account',
@@ -111,13 +124,16 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
             if not account_id:
                 return result
 
+            # savepoint: يبقي معاملة أودو الخارجية سليمة حتى لو رفض
+            # PostgreSQL الاستعلام على إصدار Enterprise مستقبلي.
+            # groupby_ids: قصر الاستعلام على هذا الحساب وحده (الأداء).
             with self.env.cr.savepoint():
                 sums = cur_utils.compute_currency_sums(
                     report, options, ACCOUNT_GROUPBY, groupby_ids=[account_id],
                 )
 
             cur_utils.append_currency_total_lines(
-                self.env, report, options, result, line_dict_id, sums, account_id,
+                report, options, result, line_dict_id, sums, account_id,
             )
 
         except Exception:
