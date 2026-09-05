@@ -61,6 +61,14 @@ ACCOUNT_GROUPBY = SQL('account_move_line.account_id')
 class GeneralLedgerCurrencyHandler(models.AbstractModel):
     _inherit = 'account.general.ledger.report.handler'
 
+    # علامة تحميل: إن لم يظهر هذا السطر في اللوق عند إقلاع الخادم، فالملف
+    # لم يُحمَّل أصلًا (الموديول لم يُرقَّ، أو الملف في مسار خاطئ).
+    _logger.info(
+        'QSS [GL] ✔ تم تحميل امتداد دفتر الأستاذ العام '
+        '(GeneralLedgerCurrencyHandler) — الميثودات المُعاد تعريفها: '
+        '_get_aml_line، _report_expand_unfoldable_line_general_ledger'
+    )
+
     # ------------------------------------------------------------------
     # 1) تعبئة خانة Amount Currency لكل سطر
     # ------------------------------------------------------------------
@@ -82,6 +90,14 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
         )
 
         try:
+            # تُسجَّل مرة واحدة لكل طلب (debug) — لإثبات أن الميثود تُستدعى.
+            if not self.env.context.get('qss_gl_aml_logged'):
+                _logger.info(
+                    'QSS [GL] ✔ _get_aml_line تُستدعى فعلًا. مفاتيح الصف: %r',
+                    sorted(next(iter(eval_dict.values()), {}).keys())
+                    if eval_dict else 'eval_dict فارغ',
+                )
+                self.env.context = dict(self.env.context, qss_gl_aml_logged=True)
             cur_utils.patch_amount_currency_cells(report, options, line, eval_dict)
         except Exception:
             _logger.exception(
@@ -101,27 +117,47 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
             line_dict_id, groupby, options, progress, offset, *args, **kwargs
         )
 
+        _logger.info(
+            'QSS [GL] ▶ استُدعي توسيع الحساب: line=%r groupby=%r report_id=%s '
+            'has_more=%s',
+            line_dict_id, groupby, options.get('report_id'),
+            result.get('has_more'),
+        )
+
         try:
             # (أ) الترقيم: لا نضيف الإجماليات إلا بعد اكتمال عرض كل سطور
             #     الحساب، وإلا تكرّر الصف مع كل صفحة "تحميل المزيد".
             if result.get('has_more'):
+                _logger.info('QSS [GL] ⏸ has_more=True — تأجيل الإجماليات للصفحة الأخيرة.')
                 return result
 
             report = self.env['account.report'].browse(options['report_id'])
 
-            # (ب) هذا المعالج موروث أيضًا في تقارير أخرى (ميزان المراجعة
-            #     يرث معالج دفتر الأستاذ). إجماليات العملات مطلوبة في دفتر
-            #     الأستاذ العام وحده، فلا نتدخّل في غيره.
-            gl_report = self.env.ref(
-                'account_reports.general_ledger_report', raise_if_not_found=False,
-            )
-            if not gl_report or report.id != gl_report.id:
+            # (ب) هذا المعالج موروث أيضًا في ميزان المراجعة، الذي يميّز نفسه
+            #     بالخيار ``general_ledger_strict_range``. إجماليات العملات
+            #     تخصّ دفتر الأستاذ العام، فلا نتدخّل في ميزان المراجعة.
+            #
+            # ⚠ إصلاح 19.0.1.3.2: كان الشرط سابقًا مطابقة صارمة مع
+            #     ``account_reports.general_ledger_report``. هذا يكسر الميزة
+            #     في أي قاعدة فيها **نسخة محلّية (variant)** من دفتر الأستاذ
+            #     — وهو الحال في معظم تركيبات l10n — لأن
+            #     ``options['report_id']`` يكون حينها معرّف النسخة لا الأصل،
+            #     فيخرج الكود مبكرًا ولا يظهر أي إجمالي إطلاقًا.
+            if options.get('general_ledger_strict_range'):
+                _logger.info(
+                    'QSS [GL] ⏭ general_ledger_strict_range=True (ميزان مراجعة) '
+                    '— تُتخطّى إجماليات العملات عمدًا.'
+                )
                 return result
 
             account_id = cur_utils.extract_line_id_value(
                 report, line_dict_id, 'account.account',
             )
             if not account_id:
+                _logger.warning(
+                    'QSS [GL] ⛔ تعذّر استخراج معرّف الحساب من %r — '
+                    'لن تُضاف إجماليات.', line_dict_id,
+                )
                 return result
 
             # savepoint: يبقي معاملة أودو الخارجية سليمة حتى لو رفض
@@ -132,9 +168,20 @@ class GeneralLedgerCurrencyHandler(models.AbstractModel):
                     report, options, ACCOUNT_GROUPBY, groupby_ids=[account_id],
                 )
 
+            _logger.info(
+                'QSS [GL] 🔢 حساب=%s | عمود Amount Currency موجود=%s | '
+                'مجاميع العملات=%r',
+                account_id,
+                cur_utils.has_amount_currency_column(options),
+                {gk: v.get(account_id) for gk, v in sums.items()},
+            )
+
+            before = len(result.get('lines') or [])
             cur_utils.append_currency_total_lines(
                 report, options, result, line_dict_id, sums, account_id,
             )
+            added = len(result.get('lines') or []) - before
+            _logger.info('QSS [GL] ✅ أُضيف %s صف إجمالي عملة للحساب %s.', added, account_id)
 
         except Exception:
             _logger.exception(
