@@ -10,12 +10,67 @@ SHIPPING_PRODUCT_NAME = "أجور النقل والتخليص"
 class SaleOrderLineAutomation(models.Model):
     _inherit = 'sale.order.line'
 
-    x_studio_po_price = fields.Float(
+    # ------------------------------------------------------------------
+    # عملة "سعر الشراء" (طلب إداري - سبتمبر 2026)
+    # ------------------------------------------------------------------
+    # كان x_studio_po_price حقل Float مجرّدًا بلا عملة، والرقم يُكتب
+    # خامًا في purchase.order.line.price_unit الذي يُفهم **بعملة أمر
+    # الشراء**. فلو كتب المستخدم 5 وهو يقصد 5 دولار وصار أمر الشراء
+    # بالدينار، تصير القيمة 5 دنانير - وهي بالضبط لقطة "شنو سعر الشراء؟
+    # 5 دولار" التي رآها المدير. لذلك أصبح الحقل Monetary بعملة صريحة،
+    # وتُحوَّل القيمة إلى عملة أمر الشراء قبل الكتابة (انظر الخطوة 7).
+    x_studio_po_price_currency_id = fields.Many2one(
+        'res.currency',
+        string="PO Price Currency",
+        compute='_compute_x_studio_po_price_currency_id',
+        store=True,
+        readonly=False,
+        precompute=True,
+        help="عملة سعر الشراء المكتوب في العمود المجاور. الافتراضي هو "
+             "عملة الشراء المُعدّة للشركة (الدينار العراقي). غيّرها إلى "
+             "الدولار إذا كان السعر المتفق عليه مع المورّد بالدولار - "
+             "سيتولّى النظام التحويل إلى عملة أمر الشراء تلقائيًا.",
+    )
+
+    x_studio_po_price = fields.Monetary(
         string="PO Price",
+        currency_field='x_studio_po_price_currency_id',
         help="Optional per-unit purchase price. When set, it overrides "
              "the automatically computed price on a dropship purchase "
-             "order line created from this sale line.",
+             "order line created from this sale line. The value is "
+             "expressed in 'PO Price Currency' and converted to the "
+             "purchase order's currency automatically.",
     )
+
+    @api.depends('order_id.company_id')
+    def _compute_x_studio_po_price_currency_id(self):
+        # ملاحظة: نُسند القيمة لكل سطر دائمًا (لا نتخطّى أي سطر) - تخطّي
+        # سطر داخل compute لحقل مخزَّن يجعل أودو يعتبره "غير مُسنَد"
+        # ويرفع خطأ. الحقل readonly=False فالمستخدم يستطيع تغييره،
+        # ولا يُعاد حسابه إلا إذا تغيّرت شركة أمر البيع.
+        for line in self:
+            company = line.order_id.company_id or line.env.company
+            line.x_studio_po_price_currency_id = (
+                company._mq_get_purchase_currency()
+            )
+
+    def _mq_po_price_in(self, target_currency, company, date=None):
+        """سعر الشراء اليدوي محوَّلًا إلى العملة المطلوبة."""
+        self.ensure_one()
+        amount = self.x_studio_po_price or 0.0
+        source = self.x_studio_po_price_currency_id
+        if not amount or not target_currency or not source \
+                or source == target_currency:
+            return amount
+        converted = source._convert(
+            amount, target_currency, company,
+            date or fields.Date.context_today(self),
+        )
+        _logger.info(
+            "QSS [po_price] سطر بيع id=%s: %s %s ← %s %s",
+            self.id, amount, source.name, converted, target_currency.name,
+        )
+        return converted
 
 
 class SaleOrderAutomation(models.Model):
@@ -244,6 +299,51 @@ class SaleOrderAutomation(models.Model):
                 "QSS [full_cycle] ✅ انتهت معالجة أمر البيع id=%s بنجاح.", so.id,
             )
 
+    def _mq_sync_purchase_order_lines(self, purchase_orders,
+                                      only_received_qty=False):
+        """مزامنة أسطر أوامر الشراء مع أسطر أمر البيع المقابلة.
+
+        :param only_received_qty: عند True لا تُكتب إلا ``qty_received``
+            (تُستدعى بعد اعتماد حركات المخزن). عند False تُكتب الكمية
+            والسعر - وتُستدعى **قبل** الاعتماد كي يلتقط تقييم المخزون
+            السعر الصحيح.
+
+        السعر يُحوَّل من عملة "PO Price Currency" المكتوبة على سطر
+        البيع إلى عملة أمر الشراء. هذا هو ما يمنع أن يتحوّل "5 دولار"
+        إلى "5 دنانير" بعد أن أصبحت عملة الشراء الدينار.
+        """
+        self.ensure_one()
+        if not purchase_orders:
+            return
+        for po in purchase_orders:
+            po_date = po.date_order and po.date_order.date() or None
+            for po_line in po.order_line:
+                if po_line.display_type in ('line_section', 'line_note'):
+                    continue
+                sale_line = po_line.sale_line_id
+
+                if only_received_qty:
+                    if sale_line and 'qty_received' in po_line._fields:
+                        po_line.write({'qty_received': po_line.product_qty})
+                    continue
+
+                po_vals = {}
+                if sale_line:
+                    po_vals['product_qty'] = sale_line.product_uom_qty
+                    if 'mq_quantity' in po_line._fields:
+                        po_vals['mq_quantity'] = sale_line.product_uom_qty
+                    elif 'x_studio_mq_quantity' in po_line._fields:
+                        po_vals['x_studio_mq_quantity'] = sale_line.product_uom_qty
+
+                if (sale_line and 'x_studio_po_price' in sale_line._fields
+                        and sale_line.x_studio_po_price > 0):
+                    po_vals['price_unit'] = sale_line._mq_po_price_in(
+                        po.currency_id, po.company_id, po_date,
+                    )
+
+                if po_vals:
+                    po_line.write(po_vals)
+
     def _run_full_cycle_one(self):
         self.ensure_one()
         so = self
@@ -287,6 +387,24 @@ class SaleOrderAutomation(models.Model):
                 if po.state in ['draft', 'sent', 'to approve']:
                     po.button_confirm()
 
+        # 6-أ. تحديث كميات وأسعار أوامر الشراء **قبل** اعتماد حركات
+        #     المخزن (كان هذا سابقًا الخطوة 7 بعد الاعتماد).
+        #
+        #     لماذا نُقل إلى هنا؟ تقييم المخزون (stock.valuation.layer)
+        #     يُحسب لحظة button_validate من سعر حركة المخزن، وسعر الحركة
+        #     يأتي من purchase.order.line._get_stock_move_price_unit
+        #     (purchase_stock/models/purchase_order_line.py) الذي يحوّل
+        #     عملة أمر الشراء إلى عملة الشركة في تلك اللحظة. وأودو لا
+        #     يمرّر تغيير price_unit إلى الحركات إلا وهي غير 'done'
+        #     (purchase_stock/models/purchase_order_line.py::write:
+        #     ``moves = line.move_ids.filtered(lambda s: s.state not in
+        #     ('cancel', 'done') ...)``).
+        #     فالترتيب القديم كان يترك المخزون مسعَّرًا بالسعر القديم
+        #     وفاتورة المورّد بالسعر الجديد - فرق دائم في حساب الفرق
+        #     السعري. بهذا الترتيب يتطابق الاثنان.
+        _logger.info("QSS [step6a] id=%s | تحديث أوامر الشراء قبل الاعتماد...", so.id)
+        self._mq_sync_purchase_order_lines(purchase_orders)
+
         # 6. تجميع حركات المخزن واعتمادها
         all_pickings = so.picking_ids | purchase_orders.mapped('picking_ids')
         _logger.info(
@@ -315,30 +433,12 @@ class SaleOrderAutomation(models.Model):
                         res.get('res_id')
                     ).process_cancel_backorder()
 
-        # 7. تحديث كميات وأسعار أوامر الشراء بناءً على الكميات الموزعة
-        #    تناسبيًا لكل سطر (نفس نسبة سطر أمر البيع المقابل)
-        _logger.info("QSS [step7] id=%s | تحديث أوامر الشراء...", so.id)
-        if purchase_orders:
-            for po in purchase_orders:
-                for po_line in po.order_line:
-                    if po_line.display_type not in ['line_section', 'line_note']:
-                        po_vals = {}
-                        sale_line = po_line.sale_line_id
-
-                        if sale_line:
-                            po_vals['product_qty'] = sale_line.product_uom_qty
-                            if 'mq_quantity' in po_line._fields:
-                                po_vals['mq_quantity'] = sale_line.product_uom_qty
-                            elif 'x_studio_mq_quantity' in po_line._fields:
-                                po_vals['x_studio_mq_quantity'] = sale_line.product_uom_qty
-                        if (sale_line and 'x_studio_po_price' in sale_line._fields
-                                and sale_line.x_studio_po_price > 0):
-                            po_vals['price_unit'] = sale_line.x_studio_po_price
-
-                        if po_vals:
-                            po_line.write(po_vals)
-                            if 'qty_received' in po_line._fields:
-                                po_line.write({'qty_received': po_line.product_qty})
+        # 7. مزامنة الكمية المستلمة بعد اعتماد حركات المخزن.
+        #    (تحديث الكميات والأسعار انتقل إلى الخطوة 6-أ أعلاه.)
+        _logger.info("QSS [step7] id=%s | مزامنة الكمية المستلمة...", so.id)
+        self._mq_sync_purchase_order_lines(
+            purchase_orders, only_received_qty=True,
+        )
 
         # 8. التعامل مع فاتورة المبيعات (التحقق إذا كانت منشأة مسبقاً أو
         #    إنشاؤها مرة واحدة وترحيلها)

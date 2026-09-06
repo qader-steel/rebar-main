@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Qader Steel Suite - Sales, Purchase, Delivery & Accounting",
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.5.0",
     "category": "Sales",
     "summary": "All-in-one operations suite: bundle/weight calculator, driver & "
                "transportation info, multi-currency partner ledger and "
@@ -125,6 +125,9 @@ Notes
         "views/statement_wizard_views.xml",
         "report/customer_statement_report.xml",
         "report/customer_statement_templates.xml",
+
+        # --- Default purchase currency (management request, Sep 2026) -----
+        "views/purchase_currency_settings_views.xml",
 
         # --- Full-cycle sale automation + requisition auto-populate -------
         "views/automation_sale_order_views.xml",

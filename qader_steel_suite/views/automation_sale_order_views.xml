@@ -39,6 +39,9 @@
                 </group>
             </xpath>
             <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="after">
+                <field name="x_studio_po_price_currency_id"
+                       optional="show"
+                       options="{'no_create': True, 'no_open': True}"/>
                 <field name="x_studio_po_price" optional="show"/>
             </xpath>
             <!-- "Total Net Weight" removed from the form on management's request:
