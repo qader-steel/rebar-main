@@ -85,6 +85,11 @@ Notes
         "purchase_stock",
         "purchase_requisition",
         "stock",
+        # Required by view_order_form_hide_native_dropship, which xpaths
+        # into the "action_view_dropship" button this module adds to the
+        # Sales Order form. Without the dependency the view would fail to
+        # build wherever stock_dropshipping is not installed.
+        "stock_dropshipping",
         "account",
         "account_reports",
     ],
