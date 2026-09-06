@@ -10,12 +10,66 @@ SHIPPING_PRODUCT_NAME = "أجور النقل والتخليص"
 class SaleOrderLineAutomation(models.Model):
     _inherit = 'sale.order.line'
 
-    x_studio_po_price = fields.Float(
+    # ------------------------------------------------------------------
+    # PO PRICE - always carries its own currency
+    # ------------------------------------------------------------------
+    # This used to be a bare Float written straight into the purchase
+    # order line's price_unit. A number with no currency of its own
+    # silently adopts whatever currency the purchase order happens to be
+    # in, so typing 1,550,000 meaning dinars against a USD vendor booked
+    # one and a half million dollars - with no symbol on screen and no
+    # warning anywhere.
+    #
+    # The field now states its currency, the form shows the symbol, and
+    # the conversion into the purchase order's currency happens once, in
+    # _po_price_in() below, at the order's own date.
+    # ------------------------------------------------------------------
+
+    x_studio_po_price_currency_id = fields.Many2one(
+        'res.currency',
+        string="PO Price Currency",
+        default=lambda self: self.env.company.currency_id,
+        help="The currency the PO Price is typed in. It is converted into "
+             "the purchase order's own currency when the dropship purchase "
+             "order is created or updated.",
+    )
+
+    x_studio_po_price = fields.Monetary(
         string="PO Price",
+        currency_field='x_studio_po_price_currency_id',
         help="Optional per-unit purchase price. When set, it overrides "
              "the automatically computed price on a dropship purchase "
              "order line created from this sale line.",
     )
+
+    def _po_price_in(self, target_currency, date=None):
+        """The PO Price expressed in ``target_currency``.
+
+        Returns 0.0 when no price was typed, so the caller can keep using
+        "> 0" to mean "the user wants to override the computed price".
+        """
+        self.ensure_one()
+
+        price = self.x_studio_po_price or 0.0
+
+        if not price:
+            return 0.0
+
+        source = (
+            self.x_studio_po_price_currency_id
+            or self.order_id.currency_id
+            or self.env.company.currency_id
+        )
+
+        if not target_currency or source == target_currency:
+            return price
+
+        return source._convert(
+            price,
+            target_currency,
+            self.order_id.company_id or self.env.company,
+            date or self.order_id.date_order or fields.Date.context_today(self),
+        )
 
 
 class SaleOrderAutomation(models.Model):
@@ -333,7 +387,12 @@ class SaleOrderAutomation(models.Model):
                                 po_vals['x_studio_mq_quantity'] = sale_line.product_uom_qty
                         if (sale_line and 'x_studio_po_price' in sale_line._fields
                                 and sale_line.x_studio_po_price > 0):
-                            po_vals['price_unit'] = sale_line.x_studio_po_price
+                            # converted into the PO's own currency - the raw
+                            # number used to be written here as-is, which meant
+                            # a dinar price landed in a dollar purchase order
+                            po_vals['price_unit'] = sale_line._po_price_in(
+                                po.currency_id, po.date_order,
+                            )
 
                         if po_vals:
                             po_line.write(po_vals)
