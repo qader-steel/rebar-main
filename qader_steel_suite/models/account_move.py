@@ -7,7 +7,7 @@ class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
     mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="Weight Qty", digits='Product Unit of Measure')
 
     @api.onchange('mq_quantity')
     def _onchange_mq_quantity(self):

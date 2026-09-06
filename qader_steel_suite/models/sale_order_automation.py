@@ -108,7 +108,22 @@ class SaleOrderAutomation(models.Model):
     _inherit = 'sale.order'
 
     x_studio_net_weight = fields.Float(string="Net Weight")
-    x_studio_shipping_cost_ton = fields.Float(string="Shipping Cost (Ton)")
+    # ------------------------------------------------------------------
+    # (19.0.1.8.0) أصبح Monetary بعملة أمر البيع بدل Float مجرّد.
+    # السبب: قيمته تُضرب في الوزن الصافي وتُكتب مباشرة في price_unit
+    # لسطر "أجور النقل والتخليص"، وهو سطر بيع - أي أن الرقم يُفهم
+    # **بعملة أمر البيع**. حين كان Float بلا رمز عملة، كان المستخدم
+    # يكتب أجورًا بالدينار على أمر بيع بالدولار فتتضخّم 1550 ضعفًا
+    # (رُصد فعليًا: سطر نقل بـ 100 على أمر بالدولار = 155,000 دينار).
+    # كـ Monetary يظهر رمز العملة بجانب الحقل، فيرى المستخدم بعينه
+    # بأي عملة يكتب قبل أن يكتب.
+    # ------------------------------------------------------------------
+    x_studio_shipping_cost_ton = fields.Monetary(
+        string="Shipping Cost (Ton)",
+        currency_field='currency_id',
+        help="أجور النقل والتخليص للطن الواحد، بعملة أمر البيع المعروضة "
+             "بجانب الحقل. تُضرب في الوزن الصافي لإنتاج سطر أجور النقل.",
+    )
     # NOTE: named mq_total_net_weight (not x_studio_*) to avoid clashing with
     # any Studio field already stored in ir.model.fields under that name.
     # Studio auto-names copied fields as "<original> (Copy)" which would
@@ -457,14 +472,24 @@ class SaleOrderAutomation(models.Model):
                     tax_ids = [(6, 0, line.tax_id.ids)]
                 elif 'tax_ids' in line._fields and line.tax_ids:
                     tax_ids = [(6, 0, line.tax_ids.ids)]
-                invoice_line_vals.append((0, 0, {
+                inv_line = {
                     'product_id': line.product_id.id,
                     'name': line.name,
                     'quantity': line.product_uom_qty,
                     'price_unit': line.price_unit,
                     'tax_ids': tax_ids,
                     'sale_line_ids': [(6, 0, [line.id])],
-                }))
+                }
+                # (19.0.1.8.0) نقل بيانات الحزم إلى الفاتورة. كانت أسطر
+                # الفاتورة تُبنى يدويًا هنا دون المرور بـ
+                # _prepare_account_move_line، فتصل الفاتورة بـ
+                # Bundle Qty = 0 و Weight Qty = 0 رغم أن أمر البيع يحملهما.
+                aml_fields = env['account.move.line']._fields
+                if 'mq_bundle_qty' in aml_fields:
+                    inv_line['mq_bundle_qty'] = line.mq_bundle_qty
+                if 'mq_quantity' in aml_fields:
+                    inv_line['mq_quantity'] = line.mq_quantity or line.product_uom_qty
+                invoice_line_vals.append((0, 0, inv_line))
             if invoice_line_vals:
                 inv_vals = {
                     'move_type': 'out_invoice',
@@ -495,14 +520,22 @@ class SaleOrderAutomation(models.Model):
                             po_tax_ids = [(6, 0, po_line.taxes_id.ids)]
                         elif 'tax_id' in po_line._fields and po_line.tax_id:
                             po_tax_ids = [(6, 0, po_line.tax_id.ids)]
-                        bill_line_vals.append((0, 0, {
+                        bill_line = {
                             'product_id': po_line.product_id.id,
                             'name': po_line.name,
                             'quantity': po_line.product_qty,
                             'price_unit': po_line.price_unit,
                             'tax_ids': po_tax_ids,
                             'purchase_line_id': po_line.id,
-                        }))
+                        }
+                        aml_fields = env['account.move.line']._fields
+                        if 'mq_bundle_qty' in aml_fields:
+                            bill_line['mq_bundle_qty'] = po_line.mq_bundle_qty
+                        if 'mq_quantity' in aml_fields:
+                            bill_line['mq_quantity'] = (
+                                po_line.mq_quantity or po_line.product_qty
+                            )
+                        bill_line_vals.append((0, 0, bill_line))
                     if bill_line_vals:
                         bill_vals = {
                             'move_type': 'in_invoice',
@@ -569,7 +602,22 @@ class SaleOrderAutomation(models.Model):
 #     """
 #     _inherit = 'sale.order'
 #
-#     x_studio_shipping_cost_ton = fields.Float(string="Shipping Cost (Ton)")
+#     # ------------------------------------------------------------------
+    # (19.0.1.8.0) أصبح Monetary بعملة أمر البيع بدل Float مجرّد.
+    # السبب: قيمته تُضرب في الوزن الصافي وتُكتب مباشرة في price_unit
+    # لسطر "أجور النقل والتخليص"، وهو سطر بيع - أي أن الرقم يُفهم
+    # **بعملة أمر البيع**. حين كان Float بلا رمز عملة، كان المستخدم
+    # يكتب أجورًا بالدينار على أمر بيع بالدولار فتتضخّم 1550 ضعفًا
+    # (رُصد فعليًا: سطر نقل بـ 100 على أمر بالدولار = 155,000 دينار).
+    # كـ Monetary يظهر رمز العملة بجانب الحقل، فيرى المستخدم بعينه
+    # بأي عملة يكتب قبل أن يكتب.
+    # ------------------------------------------------------------------
+    x_studio_shipping_cost_ton = fields.Monetary(
+        string="Shipping Cost (Ton)",
+        currency_field='currency_id',
+        help="أجور النقل والتخليص للطن الواحد، بعملة أمر البيع المعروضة "
+             "بجانب الحقل. تُضرب في الوزن الصافي لإنتاج سطر أجور النقل.",
+    )
 #
 #     # ------------------------------------------------------------------
 #     # Helpers

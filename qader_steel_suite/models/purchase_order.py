@@ -7,7 +7,7 @@ class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
     mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="Weight Qty", digits='Product Unit of Measure')
 
     @api.model_create_multi
     def create(self, vals_list):

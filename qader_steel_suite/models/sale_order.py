@@ -7,7 +7,7 @@ class SaleOrderLine(models.Model):
     _inherit = 'sale.order.line'
 
     mq_bundle_qty = fields.Float(string="Bundle Qty", digits='Product Unit of Measure')
-    mq_quantity = fields.Float(string="Quantity", digits='Product Unit of Measure')
+    mq_quantity = fields.Float(string="Weight Qty", digits='Product Unit of Measure')
 
     # ==================================================================
     # طلب إداري (سبتمبر 2026) - سلوك "Bundle Qty"

@@ -107,26 +107,26 @@ class AccountMove(models.Model):
 
     sale_order_ids = fields.Many2many(
         comodel_name="sale.order",
-        compute="_compute_order_ids",
+        compute="_compute_related_order_ids",
         string="Related Sales Orders"
     )
     
     sale_order_id = fields.Many2one(
         comodel_name="sale.order",
-        compute="_compute_order_ids",
+        compute="_compute_source_order_ids",
         store=True,
         string="Source Sales Order",
     )
 
     purchase_order_ids = fields.Many2many(
         comodel_name="purchase.order",
-        compute="_compute_order_ids",
+        compute="_compute_related_order_ids",
         string="Related Purchase Orders"
     )
 
     purchase_order_id = fields.Many2one(
         comodel_name="purchase.order",
-        compute="_compute_order_ids",
+        compute="_compute_source_order_ids",
         store=True,
         string="Source Purchase Order",
     )
@@ -138,16 +138,38 @@ class AccountMove(models.Model):
     border_crossing_id = fields.Many2one("mq.border.crossing", string="Border Crossing", compute="_compute_driver_info", inverse="_inverse_driver_info", store=True, readonly=False)
     scale_no_id = fields.Many2one("mq.scale.no", string="Scale No", compute="_compute_driver_info", inverse="_inverse_driver_info", store=True, readonly=False)
 
-    @api.depends("invoice_line_ids.sale_line_ids.order_id", "invoice_line_ids.purchase_line_id.order_id")
-    def _compute_order_ids(self):
+    # ------------------------------------------------------------------
+    # ملاحظة (19.0.1.8.0): كانت الحقول الأربعة أعلاه تتشارك دالة حساب
+    # واحدة (_compute_order_ids) رغم أن اثنين منها store=True واثنين
+    # غير مخزَّنين، فكان أودو يطلق تحذيرين عند كل بناء للسجل:
+    #   "inconsistent 'compute_sudo' for computed fields ..."
+    #   "inconsistent 'store' for computed fields, accessing
+    #    sale_order_ids, purchase_order_ids may recompute and update
+    #    sale_order_id, purchase_order_id"
+    # (odoo/orm/registry.py:556 و:573). التحذير الثاني ليس تجميليًا:
+    # مجرّد قراءة حقل غير مخزَّن كان قد يُطلق إعادة حساب وكتابة للحقلين
+    # المخزَّنين. الحل الذي يوصي به أودو نفسه: دالة منفصلة لكل مجموعة.
+    # ------------------------------------------------------------------
+    _ORDER_DEPENDS = (
+        "invoice_line_ids.sale_line_ids.order_id",
+        "invoice_line_ids.purchase_line_id.order_id",
+    )
+
+    @api.depends(*_ORDER_DEPENDS)
+    def _compute_source_order_ids(self):
+        """الحقول المخزَّنة (Many2one) - المصدر الأول لكل فاتورة."""
         for move in self:
             sales = move.invoice_line_ids.mapped('sale_line_ids.order_id')
-            move.sale_order_ids = sales
             move.sale_order_id = sales[0] if sales else False
-
             purchases = move.invoice_line_ids.mapped('purchase_line_id.order_id')
-            move.purchase_order_ids = purchases
             move.purchase_order_id = purchases[0] if purchases else False
+
+    @api.depends(*_ORDER_DEPENDS)
+    def _compute_related_order_ids(self):
+        """الحقول غير المخزَّنة (Many2many) - كل الأوامر المرتبطة."""
+        for move in self:
+            move.sale_order_ids = move.invoice_line_ids.mapped('sale_line_ids.order_id')
+            move.purchase_order_ids = move.invoice_line_ids.mapped('purchase_line_id.order_id')
 
     @api.depends('sale_order_id.driver_name_id', 'purchase_order_id.driver_name_id',
                 'sale_order_id.driver_phone_id', 'purchase_order_id.driver_phone_id',
