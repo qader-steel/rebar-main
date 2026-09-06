@@ -525,7 +525,7 @@
 
                     <t t-if="stmt_data['is_multi_currency']">
 
-                        <!-- <div style="margin-top:8px; font-size:7pt; color:#6c757d;
+                        <div style="margin-top:8px; font-size:7pt; color:#6c757d;
                                     page-break-inside:avoid;">
                             The grand total converts every currency into
                             <span t-out="stmt_data['company_currency'].name"/>
@@ -536,7 +536,7 @@
                             <br/>
                             المجموع العام محوَّل بسعر صرف تاريخ كل قيد كما هو مسجَّل في
                             دفتر الأستاذ، لا بسعر اليوم.
-                        </div> -->
+                        </div>
 
                     </t>
 
