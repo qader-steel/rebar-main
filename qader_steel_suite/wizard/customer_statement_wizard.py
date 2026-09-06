@@ -302,6 +302,14 @@ class CustomerStatementEngine(models.AbstractModel):
 
         groups = []
 
+        # Position of every line in the caller's global ordering (date,
+        # move, sequence, id).  The per-currency loop below breaks that
+        # ordering apart; keeping the index on each row lets the report
+        # put them back into one chronological table without re-sorting,
+        # and therefore without ever disagreeing with the per-currency
+        # totals built from the very same rows.
+        order_index = {line.id: index for index, line in enumerate(lines)}
+
         for currency in self._sort_currencies(currencies, company_currency):
 
             currency_lines = lines.filtered(
@@ -352,6 +360,7 @@ class CustomerStatementEngine(models.AbstractModel):
 
                 result_lines.append({
                     'aml_id': line.id,
+                    'order': order_index.get(line.id, 0),
                     'date': line.date,
                     'transaction': move.name,
                     'product': self._get_line_label(line),
@@ -413,9 +422,31 @@ class CustomerStatementEngine(models.AbstractModel):
                 'total_credit_company': total_credit_company,
             })
 
+        # ------------------------------------------------------------------
+        # ONE TABLE, EVERY CURRENCY SIDE BY SIDE
+        # ------------------------------------------------------------------
+        # The same rows, merged back into one chronological list, so the
+        # report shows every currency as a column group in a single table.
+        #
+        # Nothing is recomputed here: each row keeps the running balance
+        # its own currency already gave it.  A row belongs to exactly one
+        # currency - the other currencies' cells on that row stay empty,
+        # which is what keeps two currencies from being added together on
+        # a line.  The one place they ARE added is the grand total row,
+        # and there the figures come from `debit` / `credit` (already in
+        # the company currency, at each entry's own historical rate), not
+        # from converting the per-currency closing balances at today's
+        # rate.  So the grand total can never drift away from the ledger.
+        unified_rows = sorted(
+            (row for group in groups for row in group['lines']),
+            key=lambda row: (row['order'], row['aml_id']),
+        )
+
         statement = {
             'partner': partner,
             'party_type': party_type,
+            'currencies': [group['currency'] for group in groups],
+            'rows': unified_rows,
             'party_type_label': (
                 _('Vendor') if party_type == 'vendor' else _('Customer')
             ),
@@ -560,7 +591,7 @@ class CustomerStatementReport(models.AbstractModel):
                 'date_from': False,
                 'date_to': False,
                 'currency_filter': False,
-            }
+                }
 
         statements = wizard._build_statements()
 

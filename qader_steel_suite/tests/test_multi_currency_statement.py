@@ -271,19 +271,25 @@ class TestMultiCurrencyStatement(AccountTestInvoicingCommon):
         action = wizard.action_print_report()
         self.assertEqual(action['type'], 'ir.actions.report')
 
-    def test_12_templates_actually_render(self):
-        """Renders both QWeb templates through the real Odoo engine."""
+    def _render(self, template, ids, data):
         html = self.env['ir.actions.report']._render_qweb_html(
+            template, ids, data=data,
+        )[0]
+        return html.decode() if isinstance(html, bytes) else html
+
+    def test_12_templates_actually_render(self):
+        """Renders both QWeb templates through the real Odoo engine.
+
+        One table with every currency side by side - the only layout.
+        """
+        body = self._render(
             'qader_steel_suite.from_lines',
             self._period_lines().ids,
-            data={'date_from': self.date_from, 'date_to': self.date_to},
-        )[0]
-        body = html.decode() if isinstance(html, bytes) else html
+            {'date_from': self.date_from, 'date_to': self.date_to},
+        )
 
-        self.assertIn('Statement in USD', body)
-        self.assertIn('Statement in IQD', body)
-        self.assertIn('Debit (USD)', body)
-        self.assertIn('Consolidated Total in IQD', body)
+        self.assertIn('Currencies Side by Side', body)
+        self.assertIn('Grand Total', body)
 
         wizard = self.env['customer.statement.wizard'].create({
             'partner_id': self.partner.id,
@@ -291,16 +297,141 @@ class TestMultiCurrencyStatement(AccountTestInvoicingCommon):
             'date_to': self.date_to,
             'party_type': 'customer',
         })
-        wizard_html = self.env['ir.actions.report']._render_qweb_html(
-            'qader_steel_suite.statement',
-            wizard.ids,
-            data={'wizard_id': wizard.id},
-        )[0]
-        wizard_body = (
-            wizard_html.decode()
-            if isinstance(wizard_html, bytes) else wizard_html
+
+        wizard_body = self._render(
+            'qader_steel_suite.statement', wizard.ids, {'wizard_id': wizard.id},
         )
-        self.assertIn('Statement in USD', wizard_body)
+        self.assertIn('Currencies Side by Side', wizard_body)
+
+    def test_12b_one_total_per_currency(self):
+        """Every currency keeps its own closing balance in the merged table.
+
+        This is the whole point of the layout: currencies sit next to each
+        other, and are still never added together.
+        """
+        wizard = self.env['customer.statement.wizard'].create({
+            'partner_id': self.partner.id,
+            'date_from': self.date_from,
+            'date_to': self.date_to,
+            'party_type': 'customer',
+        })
+        body = self._render(
+            'qader_steel_suite.statement', wizard.ids, {'wizard_id': wizard.id},
+        )
+
+        statement = wizard._build_statements()[0]
+        groups = self._groups(statement)
+
+        # one column group header per currency
+        for name in ('USD', 'IQD'):
+            self.assertIn(name, body)
+
+        self.assertIn('Closing Balance', body)
+
+        # the closing figure of each currency is printed, unconverted
+        for name, group in groups.items():
+            currency = group['currency']
+            printed = ('{:,.%df}' % currency.decimal_places).format(
+                abs(group['closing_balance'])
+            )
+            self.assertIn(
+                printed, body,
+                "closing balance of %s (%s) is missing from the table"
+                % (name, printed),
+            )
+
+    def test_12c_merged_rows_match_the_currency_totals(self):
+        """The merged row list is a re-ordering of the per-currency rows.
+
+        Not a copy with its own arithmetic: the table's rows and its
+        per-currency totals must be two views of one set of numbers, or a
+        statement could show a row that its own column total contradicts.
+        """
+        statement = self._statement()
+
+        currency_rows = [
+            row
+            for group in statement['currency_groups']
+            for row in group['lines']
+        ]
+
+        self.assertEqual(
+            len(statement['rows']), len(currency_rows),
+            "the merged list dropped or duplicated rows",
+        )
+
+        self.assertEqual(
+            sorted(r['aml_id'] for r in statement['rows']),
+            sorted(r['aml_id'] for r in currency_rows),
+        )
+
+        # identity, not equality: the table renders the very same dicts
+        for row in statement['rows']:
+            self.assertTrue(
+                any(row is other for other in currency_rows),
+                "a merged row is not the per-currency row it claims to mirror",
+            )
+
+        # chronological across every currency
+        dates = [row['date'] for row in statement['rows']]
+        self.assertEqual(
+            dates, sorted(dates),
+            "the merged rows are not in date order",
+        )
+
+        # and each row still carries exactly one currency
+        currencies = {row['currency'] for row in statement['rows']}
+        self.assertEqual(
+            currencies,
+            {group['currency'] for group in statement['currency_groups']},
+        )
+
+    def test_12d_grand_total_equals_the_sum_of_the_booked_amounts(self):
+        """The grand total is the ledger's own company-currency figure.
+
+        Management asked for "each currency's total on its own, then the
+        conversion added up in the base currency". The second half must
+        equal what the general ledger already holds - if it were computed
+        by converting the closing balances at today's rate instead, the
+        statement would drift away from the books every time the rate moved.
+        """
+        statement = self._statement()
+        groups = statement['currency_groups']
+
+        self.assertGreater(len(groups), 1, "need two currencies for this test")
+
+        self.assertAlmostEqual(
+            statement['closing_balance_company'],
+            sum(g['closing_balance_company'] for g in groups),
+            places=2,
+        )
+
+        # the company-currency currency group contributes its own figure
+        # untouched - it is not converted through anything
+        company_group = next(
+            g for g in groups if g['is_company_currency']
+        )
+        self.assertAlmostEqual(
+            company_group['closing_balance'],
+            company_group['closing_balance_company'],
+            places=2,
+        )
+
+        body = self._render(
+            'qader_steel_suite.from_lines',
+            self._period_lines().ids,
+            {'date_from': self.date_from, 'date_to': self.date_to},
+        )
+        self.assertIn('Grand Total', body)
+
+        company_currency = statement['company_currency']
+        printed = ('{:,.%df}' % company_currency.decimal_places).format(
+            abs(statement['closing_balance_company'])
+        )
+        self.assertIn(
+            printed, body,
+            "the grand total figure is missing from the table",
+        )
 
     def test_13_empty_selection_does_not_crash(self):
         values = self.engine._get_report_values([], data=None)
