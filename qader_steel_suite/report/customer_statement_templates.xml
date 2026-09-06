@@ -155,11 +155,11 @@
 
                         </table>
 
-                        <!-- <div style="font-size:6.5pt; color:#6c757d; margin-top:2px;">
+                        <div style="font-size:6.5pt; color:#6c757d; margin-top:2px;">
                             Each currency is kept separate on purpose - balances in
                             different currencies are never added together.
                             كل عملة مستقلة تمامًا؛ لا تُجمع أرصدة عملات مختلفة معًا.
-                        </div> -->
+                        </div>
 
                     </div>
 
@@ -504,14 +504,14 @@
 
                             </table>
 
-                            <!-- <div style="font-size:6.5pt; color:#6c757d; margin-top:3px;">
+                            <div style="font-size:6.5pt; color:#6c757d; margin-top:3px;">
                                 Each row is posted in one currency only; the other
                                 currency columns on that row are intentionally empty.
                                 The grand total is the one place the currencies are
                                 brought together, and it uses the amounts already
                                 booked in the ledger at each entry's own rate.
                                 كل سطر بعملة واحدة، والمجموع العام وحده يجمعها بعد التحويل.
-                            </div> -->
+                            </div>
 
                         </div>
 

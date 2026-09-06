@@ -105,50 +105,28 @@ class StockPicking(models.Model):
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    # ------------------------------------------------------------------
-    # RELATED / SOURCE ORDERS
-    # ------------------------------------------------------------------
-    # These four used to share one compute method while two of them were
-    # stored and two were not. Odoo warns about that on every registry
-    # build, and the warning describes a real effect:
-    #
-    #   "accessing sale_order_ids, purchase_order_ids may recompute and
-    #    update sale_order_id, purchase_order_id"
-    #
-    # i.e. merely READING the non-stored list fields would run the shared
-    # compute, which also assigns the stored ones - turning a read into a
-    # database write. And because Odoo defaults compute_sudo to True for
-    # stored computed fields and False for non-stored ones, the very same
-    # method was running under two different access contexts depending on
-    # which field happened to trigger it.
-    #
-    # Splitting them into two methods - one for the stored pair, one for
-    # the non-stored pair - makes each group internally consistent. The
-    # values produced are identical; only the plumbing changed.
-    # ------------------------------------------------------------------
-
     sale_order_ids = fields.Many2many(
         comodel_name="sale.order",
-        compute="_compute_related_order_ids",
-        string="Related Sales Orders",
+        compute="_compute_order_ids",
+        string="Related Sales Orders"
     )
-
-    purchase_order_ids = fields.Many2many(
-        comodel_name="purchase.order",
-        compute="_compute_related_order_ids",
-        string="Related Purchase Orders",
-    )
-
+    
     sale_order_id = fields.Many2one(
         comodel_name="sale.order",
-        compute="_compute_source_order_id",
+        compute="_compute_order_ids",
         store=True,
         string="Source Sales Order",
     )
 
+    purchase_order_ids = fields.Many2many(
+        comodel_name="purchase.order",
+        compute="_compute_order_ids",
+        string="Related Purchase Orders"
+    )
+
     purchase_order_id = fields.Many2one(
         comodel_name="purchase.order",
-        compute="_compute_source_order_id",
+        compute="_compute_order_ids",
         store=True,
         string="Source Purchase Order",
     )
@@ -160,31 +138,15 @@ class AccountMove(models.Model):
     border_crossing_id = fields.Many2one("mq.border.crossing", string="Border Crossing", compute="_compute_driver_info", inverse="_inverse_driver_info", store=True, readonly=False)
     scale_no_id = fields.Many2one("mq.scale.no", string="Scale No", compute="_compute_driver_info", inverse="_inverse_driver_info", store=True, readonly=False)
 
-    @api.depends("invoice_line_ids.sale_line_ids.order_id",
-                 "invoice_line_ids.purchase_line_id.order_id")
-    def _compute_related_order_ids(self):
-        """Every order this invoice draws lines from. Not stored."""
-        for move in self:
-            move.sale_order_ids = move.invoice_line_ids.mapped(
-                'sale_line_ids.order_id'
-            )
-            move.purchase_order_ids = move.invoice_line_ids.mapped(
-                'purchase_line_id.order_id'
-            )
-
-    @api.depends("invoice_line_ids.sale_line_ids.order_id",
-                 "invoice_line_ids.purchase_line_id.order_id")
-    def _compute_source_order_id(self):
-        """The first order of each kind - the one driver info is copied from.
-
-        Stored, because _compute_driver_info depends on it and the driver
-        block has to stay on the invoice even after the order is archived.
-        """
+    @api.depends("invoice_line_ids.sale_line_ids.order_id", "invoice_line_ids.purchase_line_id.order_id")
+    def _compute_order_ids(self):
         for move in self:
             sales = move.invoice_line_ids.mapped('sale_line_ids.order_id')
+            move.sale_order_ids = sales
             move.sale_order_id = sales[0] if sales else False
 
             purchases = move.invoice_line_ids.mapped('purchase_line_id.order_id')
+            move.purchase_order_ids = purchases
             move.purchase_order_id = purchases[0] if purchases else False
 
     @api.depends('sale_order_id.driver_name_id', 'purchase_order_id.driver_name_id',
