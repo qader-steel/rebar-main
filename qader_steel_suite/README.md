@@ -83,7 +83,7 @@ qader_steel_suite/
 ├── security/ir.model.access.csv
 ├── i18n/ar.po
 └── tests/
-```
+```d
 
 ## Update (Sept 2026) - management's refinement requests on the Sale Order + Purchase Agreement automation
 
