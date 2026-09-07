@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================
+         إعداد "عملة الشراء الافتراضية" داخل Settings ▸ Purchase ▸ Orders
+
+         نضيفه داخل block اسمه purchase_setting_container الموجود في
+         purchase/views/res_config_settings_views.xml - وهو مرساة ثابتة
+         في أودو 19.
+         ================================================================ -->
+    <record id="res_config_settings_view_form_qss_purchase_currency" model="ir.ui.view">
+        <field name="name">res.config.settings.form.qss.purchase.currency</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="purchase.res_config_settings_view_form_purchase"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='purchase_setting_container']" position="inside">
+                <setting id="qss_purchase_currency"
+                         string="Default Purchase Currency"
+                         help="العملة الافتراضية لأوامر الشراء واتفاقيات الشراء، بما فيها أوامر الشراء المتولّدة تلقائيًا في دورة الدروب-شيبنج. اتركها فارغة لاستخدام عملة الشركة. تبقى العملة قابلة للتغيير يدويًا على كل أمر شراء.">
+                    <field name="mq_purchase_currency_id"
+                           options="{'no_create': True, 'no_open': True}"/>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>
