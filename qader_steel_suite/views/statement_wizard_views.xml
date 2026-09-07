@@ -23,7 +23,7 @@
                     </group>
                 </group>
 
-                <div class="text-muted" style="margin-top:8px;">
+                <!-- <div class="text-muted" style="margin-top:8px;">
                     Leave <b>Currency</b> empty to print every currency side by
                     side in one table: a Debit / Credit / Balance column group
                     per currency, one total per currency, and a grand total
@@ -33,7 +33,7 @@
                     the only place they are added together, and it uses the
                     amounts already booked in the ledger at each entry's own
                     rate - never today's rate.
-                </div>
+                </div> -->
 
                 <footer>
                     <button name="action_print_report" string="Print"
