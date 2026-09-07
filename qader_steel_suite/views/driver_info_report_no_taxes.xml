@@ -18,8 +18,19 @@
         <xpath expr="//div[@id='total' or @name='total']" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
-        <!-- Use a very broad locator for any extra tax details tables that might exist -->
-        <xpath expr="//div[contains(@class, 'tax') or contains(@id, 'tax') or contains(@name, 'tax')]" position="attributes">
+        <!-- ملاحظة (19.0.1.9.0): حُذف الشرط contains(@class, 'tax') من هذا
+             الـ xpath. كان أودو يطلق عند كل تحميل:
+               "Error-prone use of @class in view report_invoice_document_no_taxes"
+             (odoo/addons/base/models/ir_ui_view.py:416)
+             والحذف **لا يغيّر السلوك إطلاقًا**: فُحص قالب
+             account.report_invoice_document سطرًا سطرًا، ولا يحوي أي <div>
+             يحمل class فيه كلمة tax. العنصر الوحيد الذي كان يطابقه هذا
+             الـ xpath هو <div name="taxable_supply_date"> وهو يُطابَق عبر
+             contains(@name, 'tax') الباقي كما هو. أما الـ div الوحيد الذي
+             يحمل class فيه "taxes" (totals_taxes_company_currency) فهو في
+             قالب آخر تمامًا (account.document_tax_totals_company_currency_template)
+             ولا يصل إليه xpath هذا القالب أصلًا. -->
+        <xpath expr="//div[contains(@id, 'tax') or contains(@name, 'tax')]" position="attributes">
             <attribute name="style">display: none;</attribute>
         </xpath>
     </template>
