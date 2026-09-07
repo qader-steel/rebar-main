@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Hide Taxes in Sale Order / Quotation -->
+    <template id="report_saleorder_document_no_taxes" inherit_id="sale.report_saleorder_document">
+        <!-- Using a broad XPath to remove the header and cells if they exist -->
+        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
+        <!-- Hide the entire total section -->
+        <xpath expr="//div[@name='total']" position="attributes">
+            <attribute name="style">display: none;</attribute>
+        </xpath>
+    </template>
+
+    <!-- Hide Taxes in Invoice -->
+    <template id="report_invoice_document_no_taxes" inherit_id="account.report_invoice_document">
+        <!-- Using a broad XPath for headers/cells -->
+        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
+        <!-- Hide the total section -->
+        <xpath expr="//div[@id='total' or @name='total']" position="attributes">
+            <attribute name="style">display: none;</attribute>
+        </xpath>
+        <!-- ملاحظة (19.0.1.9.0): حُذف الشرط contains(@class, 'tax') من هذا
+             الـ xpath. كان أودو يطلق عند كل تحميل:
+               "Error-prone use of @class in view report_invoice_document_no_taxes"
+             (odoo/addons/base/models/ir_ui_view.py:416)
+             والحذف **لا يغيّر السلوك إطلاقًا**: فُحص قالب
+             account.report_invoice_document سطرًا سطرًا، ولا يحوي أي <div>
+             يحمل class فيه كلمة tax. العنصر الوحيد الذي كان يطابقه هذا
+             الـ xpath هو <div name="taxable_supply_date"> وهو يُطابَق عبر
+             contains(@name, 'tax') الباقي كما هو. أما الـ div الوحيد الذي
+             يحمل class فيه "taxes" (totals_taxes_company_currency) فهو في
+             قالب آخر تمامًا (account.document_tax_totals_company_currency_template)
+             ولا يصل إليه xpath هذا القالب أصلًا. -->
+        <xpath expr="//div[contains(@id, 'tax') or contains(@name, 'tax')]" position="attributes">
+            <attribute name="style">display: none;</attribute>
+        </xpath>
+    </template>
+
+    <!-- Hide Taxes in Purchase Order -->
+    <template id="report_purchaseorder_document_no_taxes" inherit_id="purchase.report_purchaseorder_document">
+        <xpath expr="//*[self::th or self::td][@name='th_taxes' or contains(@name, 'tax')]" position="replace"/>
+        <xpath expr="//div[@id='total' or @name='total']" position="attributes">
+            <attribute name="style">display: none;</attribute>
+        </xpath>
+    </template>
+</odoo>

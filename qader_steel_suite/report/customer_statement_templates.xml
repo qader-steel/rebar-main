@@ -1,0 +1,592 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ==================================================================
+         SHARED STATEMENT BODY
+         Expects in the rendering context:
+             statements      : list of statement dicts (see the engine)
+             date_from       : date
+             date_to         : date
+             currency_filter : res.currency or False
+         ================================================================== -->
+
+    <template id="statement_body">
+
+        <t t-foreach="statements" t-as="stmt_data">
+
+            <t t-call="web.external_layout">
+
+                <div class="page"
+                     style="width:100%; font-size:8pt; line-height:1.15;
+                            box-sizing:border-box;">
+
+                    <!-- ============================================
+                         TITLE
+                         ============================================ -->
+
+                    <h2 class="text-center"
+                        style="font-size:14pt; line-height:1.15;
+                               margin:0 0 8px 0; padding:0; font-weight:bold;">
+                        <t t-if="stmt_data['party_type'] == 'vendor'">Vendor Statement Report</t>
+                        <t t-else="">Customer Statement Report</t>
+                    </h2>
+
+                    <!-- ============================================
+                         STATEMENT INFORMATION
+                         ============================================ -->
+
+                    <div class="row"
+                         style="width:100%; margin:0 0 8px 0;
+                                font-size:8pt; line-height:1.2;">
+
+                        <div class="col-4"
+                             style="padding-left:3px; padding-right:3px;
+                                    word-wrap:break-word;">
+                            <strong>Partner:</strong>
+                            <span t-out="stmt_data['partner'].name"/>
+                        </div>
+
+                        <div class="col-2" style="padding-left:3px; padding-right:3px;">
+                            <strong>From:</strong>
+                            <span t-out="date_from"/>
+                        </div>
+
+                        <div class="col-2" style="padding-left:3px; padding-right:3px;">
+                            <strong>To:</strong>
+                            <span t-out="date_to"/>
+                        </div>
+
+                        <div class="col-2" style="padding-left:3px; padding-right:3px;">
+                            <strong>Company Currency:</strong>
+                            <span t-out="stmt_data['company_currency'].name"/>
+                        </div>
+
+                        <div class="col-2" style="padding-left:3px; padding-right:3px;">
+                            <strong>Currencies:</strong>
+                            <span t-out="', '.join([g['currency'].name for g in stmt_data['currency_groups']])"/>
+                        </div>
+
+                    </div>
+
+                    <!-- ============================================
+                         BALANCES BY CURRENCY  (summary, at a glance)
+                         ================================================
+                         The accountant asked to see "the IQD total on its
+                         own and the USD total on its own" without having
+                         to scroll through every section first. This block
+                         is pure presentation: every figure below is read
+                         straight from the per-currency groups the engine
+                         already computed - nothing is recalculated here,
+                         so it can never disagree with the sections below.
+                         ============================================ -->
+
+                    <div style="margin:0 0 10px 0; page-break-inside:avoid;">
+
+                        <div style="background-color:#dee2e6; border:1px solid #adb5bd;
+                                    padding:3px 5px; font-size:9pt; font-weight:bold;">
+                            Balances by Currency / الأرصدة حسب العملة
+                        </div>
+
+                        <table class="table table-sm table-bordered"
+                               style="width:100%; table-layout:fixed;
+                                      border-collapse:collapse; margin:0;">
+
+                            <colgroup>
+                                <col style="width:16%;"/>
+                                <col style="width:21%;"/>
+                                <col style="width:21%;"/>
+                                <col style="width:21%;"/>
+                                <col style="width:21%;"/>
+                            </colgroup>
+
+                            <thead>
+                                <tr style="background-color:#f1f3f5;">
+                                    <th style="font-size:6.5pt; padding:2px; text-align:center;">
+                                        Currency<br/>العملة
+                                    </th>
+                                    <th style="font-size:6.5pt; padding:2px; text-align:center;">
+                                        Opening<br/>رصيد افتتاحي
+                                    </th>
+                                    <th style="font-size:6.5pt; padding:2px; text-align:center;">
+                                        Total Debit<br/>إجمالي مدين
+                                    </th>
+                                    <th style="font-size:6.5pt; padding:2px; text-align:center;">
+                                        Total Credit<br/>إجمالي دائن
+                                    </th>
+                                    <th style="font-size:6.5pt; padding:2px; text-align:center;">
+                                        Closing Balance<br/>الرصيد الختامي
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <t t-foreach="stmt_data['currency_groups']" t-as="sgrp">
+                                    <t t-set="scur" t-value="sgrp['currency']"/>
+                                    <tr>
+                                        <td style="font-size:7pt; padding:2px;
+                                                   font-weight:bold; text-align:center;">
+                                            <span t-out="scur.name"/>
+                                            <t t-if="sgrp['is_company_currency']">
+                                                <span style="font-weight:normal; color:#6c757d;">
+                                                    (company)
+                                                </span>
+                                            </t>
+                                        </td>
+                                        <td style="font-size:7pt; padding:2px; text-align:right;">
+                                            <span t-out="sgrp['opening_balance']"
+                                                  t-options='{"widget": "monetary", "display_currency": scur}'/>
+                                        </td>
+                                        <td style="font-size:7pt; padding:2px; text-align:right;">
+                                            <span t-out="sgrp['total_debit']"
+                                                  t-options='{"widget": "monetary", "display_currency": scur}'/>
+                                        </td>
+                                        <td style="font-size:7pt; padding:2px; text-align:right;">
+                                            <span t-out="sgrp['total_credit']"
+                                                  t-options='{"widget": "monetary", "display_currency": scur}'/>
+                                        </td>
+                                        <td style="font-size:7.5pt; padding:2px; text-align:right;
+                                                   font-weight:bold;">
+                                            <span t-out="sgrp['closing_balance']"
+                                                  t-options='{"widget": "monetary", "display_currency": scur}'/>
+                                        </td>
+                                    </tr>
+                                </t>
+                            </tbody>
+
+                        </table>
+
+                        <div style="font-size:6.5pt; color:#6c757d; margin-top:2px;">
+                            Each currency is kept separate on purpose - balances in
+                            different currencies are never added together.
+                            كل عملة مستقلة تمامًا؛ لا تُجمع أرصدة عملات مختلفة معًا.
+                        </div>
+
+                    </div>
+
+                    <!-- ============================================
+                         LAYOUT A - CURRENCIES SIDE BY SIDE
+                         ================================================
+                         Management asked for one table instead of one
+                         table per currency: every currency becomes a
+                         column group, and the bottom of the table gives
+                         one total per currency.
+
+                         A row belongs to exactly one currency; the other
+                         currencies' cells on that row stay empty. That is
+                         what keeps this layout honest - two currencies
+                         are placed next to each other, never added on the
+                         same line. Every figure is read from the same
+                         per-currency groups the sections layout uses, so
+                         both layouts always show identical numbers.
+                         ============================================ -->
+
+                    <t t-set="cur_count"
+                           t-value="len(stmt_data['currency_groups']) or 1"/>
+                        <t t-set="col_width" t-value="56.0 / cur_count / 4.0"/>
+
+                        <div style="margin-top:10px;">
+
+                            <div style="background-color:#e9ecef; border:1px solid #adb5bd;
+                                        padding:3px 5px; margin-bottom:4px;
+                                        font-size:9pt; font-weight:bold;
+                                        page-break-after:avoid;">
+
+                                Statement - Currencies Side by Side
+
+                                <span style="float:right; font-weight:normal;">
+                                    <span t-out="', '.join([g['currency'].name for g in stmt_data['currency_groups']])"/>
+                                </span>
+
+                            </div>
+
+                            <table class="table table-sm table-bordered statement-table"
+                                   style="width:100%; table-layout:fixed;
+                                          border-collapse:collapse; margin:0;">
+
+                                <colgroup>
+                                    <col style="width:7%;"/>
+                                    <col style="width:11%;"/>
+                                    <col style="width:20%;"/>
+                                    <col style="width:6%;"/>
+                                    <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                        <col t-attf-style="width:{{col_width}}%;"/>
+                                        <col t-attf-style="width:{{col_width}}%;"/>
+                                        <col t-attf-style="width:{{col_width}}%;"/>
+                                        <col t-attf-style="width:{{col_width}}%;"/>
+                                    </t>
+                                </colgroup>
+
+                                <thead>
+
+                                    <tr>
+                                        <th rowspan="2"
+                                            style="font-size:6.5pt; padding:2px; text-align:center;
+                                                   vertical-align:middle; line-height:1.05;">Date</th>
+                                        <th rowspan="2"
+                                            style="font-size:6.5pt; padding:2px; text-align:center;
+                                                   vertical-align:middle; line-height:1.05;">Transaction</th>
+                                        <th rowspan="2"
+                                            style="font-size:6.5pt; padding:2px; text-align:center;
+                                                   vertical-align:middle; line-height:1.05;">Product / Description</th>
+                                        <th rowspan="2"
+                                            style="font-size:6.5pt; padding:2px; text-align:center;
+                                                   vertical-align:middle; line-height:1.05;">Quantity</th>
+
+                                        <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                            <th colspan="4"
+                                                style="font-size:7.5pt; padding:2px; text-align:center;
+                                                       background-color:#e9ecef; line-height:1.05;">
+                                                <span t-out="cgrp['currency'].name"/>
+                                                <t t-if="cgrp['is_company_currency']">
+                                                    <span style="font-weight:normal; color:#6c757d;">
+                                                        (company)
+                                                    </span>
+                                                </t>
+                                            </th>
+                                        </t>
+                                    </tr>
+
+                                    <tr>
+                                        <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                            <th style="font-size:6pt; padding:2px; text-align:center;
+                                                       line-height:1.05;">Unit Price</th>
+                                            <th style="font-size:6pt; padding:2px; text-align:center;
+                                                       line-height:1.05;">Debit</th>
+                                            <th style="font-size:6pt; padding:2px; text-align:center;
+                                                       line-height:1.05;">Credit</th>
+                                            <th style="font-size:6pt; padding:2px; text-align:center;
+                                                       line-height:1.05;">Balance</th>
+                                        </t>
+                                    </tr>
+
+                                </thead>
+
+                                <tbody>
+
+                                    <!-- OPENING BALANCE ROW (one per currency, side by side) -->
+
+                                    <tr style="background-color:#f8f9fa;">
+                                        <td style="font-size:6pt; padding:2px;">
+                                            <span t-out="date_from"/>
+                                        </td>
+                                        <td style="font-size:6pt; padding:2px;"/>
+                                        <td style="font-size:6pt; padding:2px; font-style:italic;">
+                                            Opening Balance
+                                        </td>
+                                        <td style="font-size:6pt; padding:2px;"/>
+
+                                        <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                            <td style="font-size:6pt; padding:2px;"/>
+                                            <td style="font-size:6pt; padding:2px;"/>
+                                            <td style="font-size:6pt; padding:2px;"/>
+                                            <td style="font-size:6pt; padding:2px; text-align:right;">
+                                                <span t-out="cgrp['opening_balance']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": cgrp["currency"]}'/>
+                                            </td>
+                                        </t>
+                                    </tr>
+
+                                    <!-- DATA ROWS - chronological across every currency -->
+
+                                    <t t-foreach="stmt_data['rows']" t-as="row">
+
+                                        <tr>
+
+                                            <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                       vertical-align:middle; word-wrap:break-word;">
+                                                <span t-out="row['date']"/>
+                                            </td>
+
+                                            <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                       vertical-align:middle; word-wrap:break-word;">
+                                                <span t-out="row['transaction']"/>
+                                            </td>
+
+                                            <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                       vertical-align:middle; word-wrap:break-word;">
+                                                <span t-out="row['product']"/>
+                                            </td>
+
+                                            <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                       vertical-align:middle; text-align:right;">
+                                                <t t-if="row['quantity']">
+                                                    <span t-out="row['quantity']"
+                                                          t-options='{"widget": "float", "precision": 2}'/>
+                                                </t>
+                                            </td>
+
+                                            <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+
+                                                <t t-if="row['currency'] == cgrp['currency']">
+
+                                                    <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                               vertical-align:middle; text-align:right;">
+                                                        <t t-if="row['unit_price']">
+                                                            <span t-out="row['unit_price']"
+                                                                  t-options='{"widget": "monetary",
+                                                                              "display_currency": cgrp["currency"]}'/>
+                                                        </t>
+                                                    </td>
+
+                                                    <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                               vertical-align:middle; text-align:right;">
+                                                        <t t-if="row['debit']">
+                                                            <span t-out="row['debit']"
+                                                                  t-options='{"widget": "monetary",
+                                                                              "display_currency": cgrp["currency"]}'/>
+                                                        </t>
+                                                    </td>
+
+                                                    <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                               vertical-align:middle; text-align:right;">
+                                                        <t t-if="row['credit']">
+                                                            <span t-out="row['credit']"
+                                                                  t-options='{"widget": "monetary",
+                                                                              "display_currency": cgrp["currency"]}'/>
+                                                        </t>
+                                                    </td>
+
+                                                    <td style="font-size:6pt; padding:2px; line-height:1.05;
+                                                               vertical-align:middle; text-align:right;">
+                                                        <span t-out="row['balance']"
+                                                              t-options='{"widget": "monetary",
+                                                                          "display_currency": cgrp["currency"]}'/>
+                                                    </td>
+
+                                                </t>
+
+                                                <t t-else="">
+                                                    <td style="padding:2px; background-color:#fcfcfd;"/>
+                                                    <td style="padding:2px; background-color:#fcfcfd;"/>
+                                                    <td style="padding:2px; background-color:#fcfcfd;"/>
+                                                    <td style="padding:2px; background-color:#fcfcfd;"/>
+                                                </t>
+
+                                            </t>
+
+                                        </tr>
+
+                                    </t>
+
+                                </tbody>
+
+                                <!-- ============================================
+                                     ONE TOTAL PER CURRENCY, SIDE BY SIDE
+                                     ============================================ -->
+
+                                <tfoot>
+
+                                    <tr style="font-weight:bold; background-color:#e9ecef;
+                                               page-break-inside:avoid;">
+
+                                        <td colspan="3"
+                                            style="font-size:6.5pt; padding:2px; text-align:right;">
+                                            Total
+                                        </td>
+
+                                        <td style="font-size:6.5pt; padding:2px; text-align:right;">
+                                            <span t-out="sum([g['total_qty'] for g in stmt_data['currency_groups']])"
+                                                  t-options='{"widget": "float", "precision": 2}'/>
+                                        </td>
+
+                                        <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                            <td style="font-size:6.5pt; padding:2px;"/>
+                                            <td style="font-size:6.5pt; padding:2px; text-align:right;">
+                                                <span t-out="cgrp['total_debit']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": cgrp["currency"]}'/>
+                                            </td>
+                                            <td style="font-size:6.5pt; padding:2px; text-align:right;">
+                                                <span t-out="cgrp['total_credit']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": cgrp["currency"]}'/>
+                                            </td>
+                                            <td style="font-size:6.5pt; padding:2px; text-align:right;">
+                                                <span t-out="cgrp['closing_balance']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": cgrp["currency"]}'/>
+                                            </td>
+                                        </t>
+
+                                    </tr>
+
+                                    <tr style="font-weight:bold; background-color:#dee2e6;
+                                               page-break-inside:avoid;">
+
+                                        <td colspan="4"
+                                            style="font-size:7pt; padding:3px; text-align:right;">
+                                            Closing Balance / الرصيد الختامي
+                                        </td>
+
+                                        <t t-foreach="stmt_data['currency_groups']" t-as="cgrp">
+                                            <td colspan="4"
+                                                style="font-size:8pt; padding:3px; text-align:right;">
+                                                <span t-out="cgrp['closing_balance']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": cgrp["currency"]}'/>
+                                            </td>
+                                        </t>
+
+                                    </tr>
+
+                                    <!-- ============================================
+                                         GRAND TOTAL - the one row where the
+                                         currencies are brought together.
+                                         ================================================
+                                         Management asked for "the total of each
+                                         currency on its own, then the conversion added
+                                         up in the base currency". The rows above give
+                                         the first half; this row gives the second.
+
+                                         The figures come from `debit` / `credit`, which
+                                         Odoo already stores in the company currency at
+                                         each entry's own historical rate. Nothing is
+                                         converted here and no rate is looked up, so
+                                         this number cannot drift away from the general
+                                         ledger - and re-printing the statement next
+                                         month returns exactly the same total.
+                                         ============================================ -->
+
+                                    <t t-if="stmt_data['is_multi_currency']">
+
+                                        <t t-set="grand_span"
+                                           t-value="4 * len(stmt_data['currency_groups'])"/>
+
+                                        <tr style="font-weight:bold;
+                                                   background-color:#ced4da;
+                                                   border-top:2px solid #495057;
+                                                   page-break-inside:avoid;">
+
+                                            <td colspan="4"
+                                                style="font-size:7.5pt; padding:4px;
+                                                       text-align:right;">
+                                                Grand Total (all currencies, in
+                                                <span t-out="stmt_data['company_currency'].name"/>)
+                                                <br/>
+                                                <span style="font-weight:normal; font-size:6.5pt;">
+                                                    المجموع العام بعد التحويل إلى
+                                                    <span t-out="stmt_data['company_currency'].name"/>
+                                                </span>
+                                            </td>
+
+                                            <td t-att-colspan="grand_span"
+                                                style="font-size:9.5pt; padding:4px;
+                                                       text-align:right;">
+
+                                                <span t-out="stmt_data['closing_balance_company']"
+                                                      t-options='{"widget": "monetary",
+                                                                  "display_currency": stmt_data["company_currency"]}'/>
+
+                                                <span style="font-weight:normal; font-size:6.5pt;
+                                                             color:#495057;">
+                                                    &#160;(debit
+                                                    <span t-out="stmt_data['total_debit_company']"
+                                                          t-options='{"widget": "monetary",
+                                                                      "display_currency": stmt_data["company_currency"]}'/>
+                                                    &#160;/&#160;credit
+                                                    <span t-out="stmt_data['total_credit_company']"
+                                                          t-options='{"widget": "monetary",
+                                                                      "display_currency": stmt_data["company_currency"]}'/>
+                                                    &#160;/&#160;opening
+                                                    <span t-out="stmt_data['opening_balance_company']"
+                                                          t-options='{"widget": "monetary",
+                                                                      "display_currency": stmt_data["company_currency"]}'/>)
+                                                </span>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </t>
+
+                                </tfoot>
+
+                            </table>
+
+                            <!-- <div style="font-size:6.5pt; color:#6c757d; margin-top:3px;">
+                                Each row is posted in one currency only; the other
+                                currency columns on that row are intentionally empty.
+                                The grand total is the one place the currencies are
+                                brought together, and it uses the amounts already
+                                booked in the ledger at each entry's own rate.
+                                كل سطر بعملة واحدة، والمجموع العام وحده يجمعها بعد التحويل.
+                            </div> -->
+
+                        </div>
+
+                    <!-- ============================================
+                         HOW THE GRAND TOTAL WAS OBTAINED
+                         ================================================
+                         The figures themselves now live in the table's
+                         last row; only the method note stays here, so the
+                         same number is never printed twice on one page.
+                         ============================================ -->
+
+                    <t t-if="stmt_data['is_multi_currency']">
+
+                        <div style="margin-top:8px; font-size:7pt; color:#6c757d;
+                                    page-break-inside:avoid;">
+                            The grand total converts every currency into
+                            <span t-out="stmt_data['company_currency'].name"/>
+                            at the exchange rate of each entry's own date - the
+                            amounts already booked in the general ledger - not at
+                            today's rate. That is why re-printing this statement
+                            later returns the same total.
+                            <br/>
+                            المجموع العام محوَّل بسعر صرف تاريخ كل قيد كما هو مسجَّل في
+                            دفتر الأستاذ، لا بسعر اليوم.
+                        </div>
+
+                    </t>
+
+                    <!-- ============================================
+                         SIGNATURE
+                         ============================================ -->
+
+                    <div class="row"
+                         style="width:100%; margin-top:14px; font-size:8pt;
+                                line-height:1.2; page-break-inside:avoid;">
+
+                        <div class="col-6" style="padding-left:3px; padding-right:3px;">
+                            <strong>Accountant Name:</strong>
+                            __________________________
+                        </div>
+
+                        <div class="col-6" style="padding-left:3px; padding-right:3px;">
+                            <strong>Accountant Signature:</strong>
+                            __________________________
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </t>
+
+            <t t-if="not stmt_data_last">
+                <div style="page-break-after:always;"/>
+            </t>
+
+        </t>
+
+    </template>
+
+
+    <!-- ==================================================================
+         REPORT ENTRY POINTS
+         ================================================================== -->
+
+    <template id="from_lines">
+        <t t-call="web.html_container">
+            <t t-call="qader_steel_suite.statement_body"/>
+        </t>
+    </template>
+
+    <template id="statement">
+        <t t-call="web.html_container">
+            <t t-call="qader_steel_suite.statement_body"/>
+        </t>
+    </template>
+
+</odoo>

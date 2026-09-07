@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_automation" model="ir.ui.view">
+        <field name="name">sale.order.form.automation</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_net_weight"
+                        string="Net Weight"
+                        type="object"
+                        invisible="state in ('sale', 'done', 'cancel')"/>
+                <button name="action_run_full_cycle"
+                        string="Run Full Cycle"
+                        type="object"
+                        class="oe_highlight"
+                        invisible="state in ('cancel',)"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_dropship_pickings"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-truck"
+                        invisible="x_studio_dropship_picking_count == 0">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value">
+                            <field name="x_studio_dropship_picking_count" widget="statinfo" nolabel="1"/>
+                        </span>
+                        <span class="o_stat_text">هلال بابل</span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//sheet/notebook" position="before">
+                <group string="Full Cycle Details" name="full_cycle_details">
+                    <field name="x_studio_net_weight"/>
+                    <field name="x_studio_shipping_cost_ton"/>
+                </group>
+            </xpath>
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_uom_qty']" position="after">
+                <field name="x_studio_po_price_currency_id"
+                       optional="show"
+                       options="{'no_create': True, 'no_open': True}"/>
+                <field name="x_studio_po_price" optional="show"/>
+            </xpath>
+            <!-- "Total Net Weight" removed from the form on management's request:
+                 it duplicated "Total Weight (Ton)" (mq_total_weight, added by
+                 view_order_form_mq_bundle) with the same value shown twice at
+                 the bottom of the order. The mq_total_net_weight field itself
+                 is kept on the model - it's still used as an internal QA check
+                 (its help text: "should match the Net Weight value above") -
+                 only its display on this form was removed. -->
+        </field>
+    </record>
+
+    <!-- ================================================================
+         Hide Odoo's native "Dropship" smart button.
+
+         Why: stock_dropshipping adds its own dropship stat button
+         (name="action_view_dropship", field dropship_picking_count) to
+         the Sales Order. This module already adds a dropship navigation
+         button relabelled "هلال بابل" (see view_order_form_automation
+         above), so the customer sees two truck buttons showing the same
+         thing. Management asked to keep only the Arabic-labelled one.
+
+         How: we only flip `invisible` on the existing node - the native
+         view, its module and the dropshipping feature itself are left
+         untouched and keep working. Removing the module or editing its
+         view would break the actual dropship flow, which is in use.
+
+         Priority 100 so this is applied after every priority-16 view
+         (including stock_dropshipping's, which is a *grandchild* of
+         sale.view_order_form through sale_stock and therefore not
+         visible in the direct-children list of the base form).
+
+         NOTE: this xpath targets a node created by stock_dropshipping,
+         so that module MUST stay in __manifest__.py "depends" - without
+         it, an install where stock_dropshipping is absent would fail to
+         build this view and take the whole Sales Order form down.
+         ================================================================ -->
+    <record id="view_order_form_hide_native_dropship" model="ir.ui.view">
+        <field name="name">sale.order.form.hide.native.dropship</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_view_dropship']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
