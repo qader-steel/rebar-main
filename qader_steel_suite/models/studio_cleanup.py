@@ -35,6 +35,13 @@
     (migration.py: ``if version == "0.0.0" and installed < current``).
 
 الدالة آمنة للتكرار: تشتغل عشر مرات ولا تفعل شيئًا بعد المرة الأولى.
+
+مستويات السجل
+-------------
+النجاح يُسجَّل ``INFO`` لا ``WARNING`` عن قصد: التنظيف الناجح ليس مشكلة
+تستدعي انتباه أحد، ووضعه في تغذية التحذيرات على odoo.sh يجعل المشغّل يظن
+أن شيئًا ما زال معطلًا. ``WARNING`` محجوز هنا للحالة التي قد تحتاج تدخلًا
+بشريًا فعلًا: تعذُّر الحذف والاكتفاء بإعادة التسمية.
 """
 
 import logging
@@ -67,7 +74,7 @@ def _strip_from_views(env, model, field_name):
                 if parent is not None:
                     parent.remove(node)
             view.arch_db = etree.tostring(tree, encoding='unicode')
-            _logger.warning(
+            _logger.info(
                 "QSS [studio_cleanup] أُزيل %s من الواجهة id=%s name=%r.",
                 field_name, view.id, view.name,
             )
@@ -102,7 +109,7 @@ def clean_duplicate_studio_labels(env, stage='unknown'):
                 _strip_from_views(env, model, name)
                 try:
                     field.with_context(studio=True, _force_unlink=True).unlink()
-                    _logger.warning(
+                    _logger.info(
                         "QSS [studio_cleanup/%s] ✅ حُذف حقل الاستديو المتبقّي "
                         "%s على %s.", stage, name, model,
                     )
