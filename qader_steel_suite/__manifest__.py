@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Qader Steel Suite - Sales, Purchase, Delivery & Accounting",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.1.0",
     "category": "Sales",
     "summary": "All-in-one operations suite: bundle/weight calculator, driver & "
                "transportation info, multi-currency partner ledger and "
@@ -134,6 +134,11 @@ Notes
         "views/automation_server_actions.xml",
         "views/purchase_agreement_views.xml",
     ],
+    # يُنفَّذ قبل انعكاس حقول الموديول عند التثبيت النظيف، لإزالة حقول
+    # Studio المتبقّية التي تكرّر عناوين حقول هذا الموديول. انظر
+    # models/studio_cleanup.py لشرح سبب الحاجة إليه إلى جانب الميغريشن.
+    "pre_init_hook": "pre_init_hook",
+
     "installable": True,
     "application": False,
     "auto_install": False,
