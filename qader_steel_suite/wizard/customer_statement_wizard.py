@@ -609,34 +609,34 @@ class CustomerStatementReport(models.AbstractModel):
 
 class CustomerStatementWizard(models.TransientModel):
     _name = 'customer.statement.wizard'
-    _description = 'Customer Statement Wizard'
+    _description = 'معالج كشف الحساب'
 
     partner_id = fields.Many2one(
         'res.partner',
-        string='Partner',
+        string='العميل / المورّد',
         required=True,
     )
-    date_from = fields.Date(string='From', required=True)
-    date_to = fields.Date(string='To', required=True)
+    date_from = fields.Date(string='من تاريخ', required=True)
+    date_to = fields.Date(string='إلى تاريخ', required=True)
     party_type = fields.Selection(
         selection=[
-            ('customer', 'Customer'),
-            ('vendor', 'Vendor'),
+            ('customer', 'عميل'),
+            ('vendor', 'مورّد'),
         ],
-        string='Statement Type',
+        string='نوع الكشف',
         default='customer',
         required=True,
     )
     currency_id = fields.Many2one(
         'res.currency',
-        string='Currency',
+        string='العملة',
         domain="[('active', '=', True)]",
-        help="Leave empty to print every currency, each in its own section. "
-             "Pick one to restrict the statement to that currency only.",
+        help="اتركه فارغًا لطباعة كل العملات، كل عملة في قسمها. "
+             "اختر عملة واحدة لقصر الكشف عليها.",
     )
     company_id = fields.Many2one(
         'res.company',
-        string='Company',
+        string='الشركة',
         default=lambda self: self.env.company,
         required=True,
     )
@@ -647,7 +647,7 @@ class CustomerStatementWizard(models.TransientModel):
         self.ensure_one()
 
         if self.date_from and self.date_to and self.date_from > self.date_to:
-            raise UserError(_("The 'From' date must not be after the 'To' date."))
+            raise UserError(_("تاريخ البداية يجب ألا يكون بعد تاريخ النهاية."))
 
         data = {
             'wizard_id': self.id,

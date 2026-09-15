@@ -5,7 +5,7 @@
         <field name="name">customer.statement.wizard.form</field>
         <field name="model">customer.statement.wizard</field>
         <field name="arch" type="xml">
-            <form string="Customer Statement">
+            <form string="كشف حساب">
 
                 <group>
                     <group>
@@ -18,7 +18,7 @@
                         <field name="date_to"/>
                         <field name="currency_id"
                                options="{'no_create': True}"
-                               placeholder="All currencies"/>
+                               placeholder="كل العملات"/>
                         <field name="company_id" groups="base.group_multi_company"/>
                     </group>
                 </group>
@@ -36,9 +36,9 @@
                 </div> -->
 
                 <footer>
-                    <button name="action_print_report" string="Print"
+                    <button name="action_print_report" string="طباعة"
                             type="object" class="btn-primary"/>
-                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    <button string="إلغاء" class="btn-secondary" special="cancel"/>
                 </footer>
 
             </form>
@@ -46,14 +46,14 @@
     </record>
 
     <record id="action_customer_statement_wizard" model="ir.actions.act_window">
-        <field name="name">Customer Statement</field>
+        <field name="name">كشف حساب</field>
         <field name="res_model">customer.statement.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
     <menuitem id="menu_customer_statement"
-              name="Customer Statement"
+              name="كشف حساب"
               parent="account.menu_finance_reports"
               action="action_customer_statement_wizard"
               sequence="50"/>
